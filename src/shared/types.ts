@@ -1,22 +1,22 @@
 // Shared domain types used across main, preload and renderer.
 //
-// The workspace is modelled as a tree of layout nodes. A node is either a
-// single panel (a real Chromium browser) or a split containing two children.
-// This binary-split model gives us 1 / 2 / 4 / N panel layouts and arbitrary
-// drag-resizing for free.
+// The workspace is a tree of layout nodes. A node is either a single panel or a
+// split of two children. Each panel now owns one or more *tabs* — every tab is
+// its own real Chromium WebContentsView. Tabs within a panel share the panel's
+// session (like tabs in a browser window); panels remain isolated from one
+// another.
 
 export type SplitDirection = 'row' | 'column'
 
 export interface PanelNode {
   type: 'panel'
-  /** Stable id — also used to key the native WebContentsView and its session. */
+  /** Stable id — also the session partition name for every tab in the panel. */
   id: string
 }
 
 export interface SplitNode {
   type: 'split'
   direction: SplitDirection
-  /** Exactly two children. Nesting produces 4/6/9/… layouts. */
   children: [LayoutNode, LayoutNode]
   /** Fractional sizes of each child along the split axis, summing to 1. */
   sizes: [number, number]
@@ -24,8 +24,8 @@ export interface SplitNode {
 
 export type LayoutNode = PanelNode | SplitNode
 
-/** Persisted, serializable state for a single panel. */
-export interface PanelState {
+/** A single tab: one Chromium WebContentsView. */
+export interface TabState {
   id: string
   url: string
   title: string
@@ -34,9 +34,16 @@ export interface PanelState {
   isLoading: boolean
 }
 
+/** A panel: an ordered set of tabs with one active. */
+export interface PanelState {
+  id: string
+  tabs: TabState[]
+  activeTabId: string
+}
+
 /** The full serializable workspace — everything needed to restore a session. */
 export interface WorkspaceState {
-  version: 1
+  version: 2
   layout: LayoutNode
   panels: Record<string, PanelState>
   focusedPanelId: string | null
@@ -50,9 +57,10 @@ export interface PanelBounds {
   height: number
 }
 
-/** Runtime navigation update pushed from main → renderer for a panel. */
-export interface PanelUpdate {
-  id: string
+/** Runtime navigation update pushed from main → renderer for a single tab. */
+export interface TabUpdate {
+  panelId: string
+  tabId: string
   url?: string
   title?: string
   canGoBack?: boolean

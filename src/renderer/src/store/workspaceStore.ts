@@ -1,8 +1,9 @@
 import { create } from 'zustand'
-import { DEFAULT_URL, type LayoutNode, type PanelState, type PanelUpdate } from '@shared/types'
+import { DEFAULT_URL, type LayoutNode, type PanelState, type TabState, type TabUpdate } from '@shared/types'
 import {
   buildPreset,
   newPanelId,
+  newTabId,
   panelIds,
   removePanel,
   resizeAt,
@@ -10,9 +11,12 @@ import {
   type SplitEdge
 } from '../layout/tree'
 
-// Native WebContentsViews currently alive in the main process. Kept outside
-// React state so reconciliation never triggers a re-render on its own.
+// --- native-side mirror -----------------------------------------------------
+// What currently exists in the main process, kept outside React state so
+// reconciliation never triggers a re-render on its own.
 const livePanels = new Set<string>()
+const liveTabs = new Map<string, Set<string>>() // panelId → tabIds
+const activeSent = new Map<string, string>() // panelId → last activated tabId
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -23,48 +27,85 @@ interface WorkspaceStore {
   focusedPanelId: string | null
 
   init(): Promise<void>
-  split(targetId: string, edge: SplitEdge): void
-  closePanel(id: string): void
+  split(panelId: string, edge: SplitEdge): void
+  closePanel(panelId: string): void
   applyPreset(count: 1 | 2 | 4): void
   resizeSplit(path: number[], sizes: [number, number]): void
-  focusPanel(id: string): void
-  navigate(id: string, url: string): void
-  back(id: string): void
-  forward(id: string): void
-  reload(id: string): void
-  stop(id: string): void
-  applyUpdate(update: PanelUpdate): void
+  focusPanel(panelId: string): void
+
+  addTab(panelId: string): void
+  closeTab(panelId: string, tabId: string): void
+  activateTab(panelId: string, tabId: string): void
+
+  navigate(panelId: string, tabId: string, url: string): void
+  back(panelId: string, tabId: string): void
+  forward(panelId: string, tabId: string): void
+  reload(panelId: string, tabId: string): void
+  stop(panelId: string, tabId: string): void
+
+  applyTabUpdate(update: TabUpdate): void
 }
 
-function freshPanel(id: string, url = DEFAULT_URL): PanelState {
-  return { id, url, title: 'New Panel', canGoBack: false, canGoForward: false, isLoading: false }
+function freshTab(url = DEFAULT_URL): TabState {
+  return { id: newTabId(), url, title: 'New Tab', canGoBack: false, canGoForward: false, isLoading: false }
+}
+
+function freshPanel(id: string): PanelState {
+  const tab = freshTab()
+  return { id, tabs: [tab], activeTabId: tab.id }
 }
 
 export const useWorkspace = create<WorkspaceStore>((set, get) => {
-  /** Sync native panels + persistence to match the current logical state. */
+  /** Sync native panels/tabs + persistence to match the current logical state. */
   function commit(layout: LayoutNode, panels: Record<string, PanelState>, focusedPanelId: string | null): void {
     const desired = new Set(panelIds(layout))
 
-    // Create panels that appeared.
-    for (const id of desired) {
-      if (!livePanels.has(id)) {
-        livePanels.add(id)
-        void window.workspace.createPanel({ id, url: panels[id]?.url ?? DEFAULT_URL })
+    // Prune orphaned PanelState first so we always have data for reconcile.
+    const pruned: Record<string, PanelState> = {}
+    for (const id of desired) pruned[id] = panels[id] ?? freshPanel(id)
+
+    // Create/refresh panels + their tabs.
+    for (const panelId of desired) {
+      const ps = pruned[panelId]
+      if (!livePanels.has(panelId)) {
+        livePanels.add(panelId)
+        liveTabs.set(panelId, new Set())
+        void window.workspace.ensurePanel(panelId)
+      }
+      const tabSet = liveTabs.get(panelId)!
+      // Create new tabs.
+      for (const tab of ps.tabs) {
+        if (!tabSet.has(tab.id)) {
+          tabSet.add(tab.id)
+          void window.workspace.createTab(panelId, tab.id, tab.url)
+        }
+      }
+      // Destroy removed tabs.
+      const wanted = new Set(ps.tabs.map((t) => t.id))
+      for (const tabId of [...tabSet]) {
+        if (!wanted.has(tabId)) {
+          tabSet.delete(tabId)
+          void window.workspace.destroyTab(panelId, tabId)
+        }
+      }
+      // Activate the active tab if it changed.
+      if (activeSent.get(panelId) !== ps.activeTabId) {
+        activeSent.set(panelId, ps.activeTabId)
+        void window.workspace.activateTab(panelId, ps.activeTabId)
       }
     }
+
     // Destroy panels that vanished.
-    for (const id of [...livePanels]) {
-      if (!desired.has(id)) {
-        livePanels.delete(id)
-        void window.workspace.destroyPanel(id)
+    for (const panelId of [...livePanels]) {
+      if (!desired.has(panelId)) {
+        livePanels.delete(panelId)
+        liveTabs.delete(panelId)
+        activeSent.delete(panelId)
+        void window.workspace.destroyPanel(panelId)
       }
     }
 
-    // Drop orphaned PanelState entries.
-    const prunedPanels: Record<string, PanelState> = {}
-    for (const id of desired) prunedPanels[id] = panels[id] ?? freshPanel(id)
-
-    set({ layout, panels: prunedPanels, focusedPanelId })
+    set({ layout, panels: pruned, focusedPanelId })
     scheduleSave()
   }
 
@@ -72,8 +113,14 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     if (saveTimer) clearTimeout(saveTimer)
     saveTimer = setTimeout(() => {
       const { layout, panels, focusedPanelId } = get()
-      void window.workspace.saveWorkspace({ version: 1, layout, panels, focusedPanelId })
+      void window.workspace.saveWorkspace({ version: 2, layout, panels, focusedPanelId })
     }, 400)
+  }
+
+  /** Immutably replace one panel's state and re-commit. */
+  function updatePanel(panelId: string, next: PanelState): void {
+    const { layout, panels, focusedPanelId } = get()
+    commit(layout, { ...panels, [panelId]: next }, focusedPanelId)
   }
 
   return {
@@ -84,7 +131,7 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
 
     async init() {
       const saved = await window.workspace.loadWorkspace()
-      window.workspace.onPanelUpdate((u) => get().applyUpdate(u))
+      window.workspace.onTabUpdate((u) => get().applyTabUpdate(u))
 
       if (saved && panelIds(saved.layout).length > 0) {
         commit(saved.layout, saved.panels, saved.focusedPanelId)
@@ -95,19 +142,18 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
       set({ ready: true })
     },
 
-    split(targetId, edge) {
+    split(panelId, edge) {
       const { layout, panels } = get()
       const id = newPanelId()
-      const nextLayout = splitPanel(layout, targetId, edge, id)
-      commit(nextLayout, { ...panels, [id]: freshPanel(id) }, id)
+      commit(splitPanel(layout, panelId, edge, id), { ...panels, [id]: freshPanel(id) }, id)
     },
 
-    closePanel(id) {
+    closePanel(panelId) {
       const { layout, panels, focusedPanelId } = get()
-      if (panelIds(layout).length <= 1) return // never close the last panel
-      const nextLayout = removePanel(layout, id)
+      if (panelIds(layout).length <= 1) return
+      const nextLayout = removePanel(layout, panelId)
       if (!nextLayout) return
-      const nextFocus = focusedPanelId === id ? panelIds(nextLayout)[0] : focusedPanelId
+      const nextFocus = focusedPanelId === panelId ? panelIds(nextLayout)[0] : focusedPanelId
       commit(nextLayout, panels, nextFocus)
     },
 
@@ -125,49 +171,99 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     },
 
     resizeSplit(path, sizes) {
-      const { layout, panels, focusedPanelId } = get()
-      // Resize is high-frequency during drag — update state but debounce the save.
-      set({ layout: resizeAt(layout, path, sizes) })
-      void panels
-      void focusedPanelId
+      set((s) => ({ layout: resizeAt(s.layout, path, sizes) }))
       scheduleSave()
     },
 
-    focusPanel(id) {
-      set({ focusedPanelId: id })
-      void window.workspace.focusPanel(id)
+    focusPanel(panelId) {
+      set({ focusedPanelId: panelId })
+      void window.workspace.focusPanel(panelId)
       scheduleSave()
     },
 
-    navigate(id, url) {
-      set((s) => ({ panels: { ...s.panels, [id]: { ...s.panels[id], url } } }))
-      void window.workspace.navigate(id, url)
+    addTab(panelId) {
+      const panel = get().panels[panelId]
+      if (!panel) return
+      const tab = freshTab()
+      updatePanel(panelId, { ...panel, tabs: [...panel.tabs, tab], activeTabId: tab.id })
+      set({ focusedPanelId: panelId })
     },
 
-    back: (id) => void window.workspace.back(id),
-    forward: (id) => void window.workspace.forward(id),
-    reload: (id) => void window.workspace.reload(id),
-    stop: (id) => void window.workspace.stop(id),
+    closeTab(panelId, tabId) {
+      const { layout, panels } = get()
+      const panel = panels[panelId]
+      if (!panel) return
+      const remaining = panel.tabs.filter((t) => t.id !== tabId)
 
-    applyUpdate(update) {
-      set((s) => {
-        const prev = s.panels[update.id]
-        if (!prev) return s
-        return {
-          panels: {
-            ...s.panels,
-            [update.id]: {
-              ...prev,
-              url: update.url ?? prev.url,
-              title: update.title ?? prev.title,
-              canGoBack: update.canGoBack ?? prev.canGoBack,
-              canGoForward: update.canGoForward ?? prev.canGoForward,
-              isLoading: update.isLoading ?? prev.isLoading
-            }
-          }
+      if (remaining.length === 0) {
+        // Last tab closed: close the whole panel, unless it is the only panel —
+        // then replace it with a fresh blank tab so a panel always has content.
+        if (panelIds(layout).length > 1) {
+          get().closePanel(panelId)
+        } else {
+          updatePanel(panelId, freshPanel(panelId))
         }
-      })
+        return
+      }
+
+      const activeTabId =
+        panel.activeTabId === tabId
+          ? remaining[Math.min(panel.tabs.findIndex((t) => t.id === tabId), remaining.length - 1)].id
+          : panel.activeTabId
+      updatePanel(panelId, { ...panel, tabs: remaining, activeTabId })
+    },
+
+    activateTab(panelId, tabId) {
+      const panel = get().panels[panelId]
+      if (!panel || panel.activeTabId === tabId) {
+        set({ focusedPanelId: panelId })
+        return
+      }
+      updatePanel(panelId, { ...panel, activeTabId: tabId })
+      set({ focusedPanelId: panelId })
+    },
+
+    navigate(panelId, tabId, url) {
+      set((s) => ({ panels: patchTab(s.panels, panelId, tabId, { url }) }))
+      void window.workspace.navigate(panelId, tabId, url)
+    },
+
+    back: (panelId, tabId) => void window.workspace.back(panelId, tabId),
+    forward: (panelId, tabId) => void window.workspace.forward(panelId, tabId),
+    reload: (panelId, tabId) => void window.workspace.reload(panelId, tabId),
+    stop: (panelId, tabId) => void window.workspace.stop(panelId, tabId),
+
+    applyTabUpdate(update) {
+      set((s) => ({
+        panels: patchTab(s.panels, update.panelId, update.tabId, {
+          url: update.url,
+          title: update.title,
+          canGoBack: update.canGoBack,
+          canGoForward: update.canGoForward,
+          isLoading: update.isLoading
+        })
+      }))
       scheduleSave()
     }
   }
 })
+
+/** Immutably merge a partial update into a single tab. Undefined fields are ignored. */
+function patchTab(
+  panels: Record<string, PanelState>,
+  panelId: string,
+  tabId: string,
+  patch: Partial<TabState>
+): Record<string, PanelState> {
+  const panel = panels[panelId]
+  if (!panel) return panels
+  const tabs = panel.tabs.map((t) => {
+    if (t.id !== tabId) return t
+    const merged = { ...t }
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) (merged as Record<string, unknown>)[k] = v
+    }
+    return merged
+  })
+  return { ...panels, [panelId]: { ...panel, tabs } }
+}

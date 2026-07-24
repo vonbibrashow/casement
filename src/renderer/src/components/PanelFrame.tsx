@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { useWorkspace } from '../store/workspaceStore'
 import type { SplitEdge } from '../layout/tree'
+import { TabStrip } from './TabStrip'
 
 export function PanelFrame({ id }: { id: string }): JSX.Element {
   const panel = useWorkspace((s) => s.panels[id])
@@ -19,15 +20,17 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
 
   const viewportRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const [draft, setDraft] = useState(panel?.url ?? '')
+  const [draft, setDraft] = useState('')
 
-  // Keep the URL bar in sync with real navigation unless the user is editing it.
+  const activeTab = panel?.tabs.find((t) => t.id === panel.activeTabId) ?? panel?.tabs[0]
+
+  // Keep the URL bar in sync with the active tab unless the user is editing it.
   useEffect(() => {
-    if (document.activeElement !== inputRef.current) setDraft(panel?.url ?? '')
-  }, [panel?.url])
+    if (document.activeElement !== inputRef.current) setDraft(activeTab?.url ?? '')
+  }, [activeTab?.id, activeTab?.url])
 
-  // Report this panel's viewport rectangle to main so the native WebContentsView
-  // is positioned exactly over it.
+  // Report this panel's viewport rectangle to main so the active tab's native
+  // WebContentsView is positioned exactly over it.
   useLayoutEffect(() => {
     const el = viewportRef.current
     if (!el) return
@@ -45,11 +48,12 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
     }
   }, [id, layout])
 
-  if (!panel) return <div className="h-full w-full bg-surface-sunken" />
+  if (!panel || !activeTab) return <div className="h-full w-full bg-surface-sunken" />
 
+  const tabId = activeTab.id
   const submit = (e: FormEvent): void => {
     e.preventDefault()
-    navigate(id, draft)
+    navigate(id, tabId, draft)
     inputRef.current?.blur()
   }
 
@@ -60,18 +64,20 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
         focused ? 'border-accent/60' : 'border-surface-border'
       }`}
     >
+      <TabStrip panelId={id} />
+
       <div className="flex h-9 shrink-0 items-center gap-1 border-b border-surface-border px-1.5">
-        <IconButton label="Back" disabled={!panel.canGoBack} onClick={() => back(id)}>
+        <IconButton label="Back" disabled={!activeTab.canGoBack} onClick={() => back(id, tabId)}>
           <path d="M12.5 15l-5-5 5-5" />
         </IconButton>
-        <IconButton label="Forward" disabled={!panel.canGoForward} onClick={() => forward(id)}>
+        <IconButton label="Forward" disabled={!activeTab.canGoForward} onClick={() => forward(id, tabId)}>
           <path d="M7.5 5l5 5-5 5" />
         </IconButton>
         <IconButton
-          label={panel.isLoading ? 'Stop' : 'Reload'}
-          onClick={() => (panel.isLoading ? stop(id) : reload(id))}
+          label={activeTab.isLoading ? 'Stop' : 'Reload'}
+          onClick={() => (activeTab.isLoading ? stop(id, tabId) : reload(id, tabId))}
         >
-          {panel.isLoading ? (
+          {activeTab.isLoading ? (
             <path d="M6 6l8 8M14 6l-8 8" />
           ) : (
             <path d="M15 10a5 5 0 1 1-1.5-3.5M15 4v3h-3" />
@@ -108,7 +114,7 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
         </div>
       </div>
 
-      {/* Native WebContentsView is positioned over this region by the main process. */}
+      {/* The active tab's native WebContentsView is positioned over this region. */}
       <div ref={viewportRef} className="panel-viewport min-h-0 flex-1" />
     </div>
   )

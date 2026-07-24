@@ -2,46 +2,47 @@
 // on `window.workspace`. Keeping these in one shared module means main, preload
 // and renderer can never drift out of sync.
 
-import type { PanelBounds, PanelUpdate, WorkspaceState } from './types'
+import type { PanelBounds, TabUpdate, WorkspaceState } from './types'
 
 export const IPC = {
   // renderer → main (invoke)
-  panelCreate: 'panel:create',
+  panelEnsure: 'panel:ensure',
   panelDestroy: 'panel:destroy',
   panelSetBounds: 'panel:set-bounds',
-  panelNavigate: 'panel:navigate',
-  panelBack: 'panel:back',
-  panelForward: 'panel:forward',
-  panelReload: 'panel:reload',
-  panelStop: 'panel:stop',
-  panelFocus: 'panel:focus',
   panelSetVisible: 'panel:set-visible',
+  panelFocus: 'panel:focus',
+  tabCreate: 'tab:create',
+  tabDestroy: 'tab:destroy',
+  tabActivate: 'tab:activate',
+  tabNavigate: 'tab:navigate',
+  tabBack: 'tab:back',
+  tabForward: 'tab:forward',
+  tabReload: 'tab:reload',
+  tabStop: 'tab:stop',
   workspaceLoad: 'workspace:load',
   workspaceSave: 'workspace:save',
   // main → renderer (send)
-  panelUpdate: 'panel:update'
+  tabUpdate: 'tab:update'
 } as const
-
-export interface CreatePanelArgs {
-  id: string
-  url: string
-}
 
 /** The typed bridge surface available in the renderer as `window.workspace`. */
 export interface WorkspaceApi {
-  createPanel(args: CreatePanelArgs): Promise<void>
-  destroyPanel(id: string): Promise<void>
-  setPanelBounds(id: string, bounds: PanelBounds): Promise<void>
-  setPanelVisible(id: string, visible: boolean): Promise<void>
-  navigate(id: string, url: string): Promise<void>
-  back(id: string): Promise<void>
-  forward(id: string): Promise<void>
-  reload(id: string): Promise<void>
-  stop(id: string): Promise<void>
-  focusPanel(id: string): Promise<void>
+  ensurePanel(panelId: string): Promise<void>
+  destroyPanel(panelId: string): Promise<void>
+  setPanelBounds(panelId: string, bounds: PanelBounds): Promise<void>
+  setPanelVisible(panelId: string, visible: boolean): Promise<void>
+  focusPanel(panelId: string): Promise<void>
+  createTab(panelId: string, tabId: string, url: string): Promise<void>
+  destroyTab(panelId: string, tabId: string): Promise<void>
+  activateTab(panelId: string, tabId: string): Promise<void>
+  navigate(panelId: string, tabId: string, url: string): Promise<void>
+  back(panelId: string, tabId: string): Promise<void>
+  forward(panelId: string, tabId: string): Promise<void>
+  reload(panelId: string, tabId: string): Promise<void>
+  stop(panelId: string, tabId: string): Promise<void>
   loadWorkspace(): Promise<WorkspaceState | null>
   saveWorkspace(state: WorkspaceState): Promise<void>
-  onPanelUpdate(cb: (update: PanelUpdate) => void): () => void
+  onTabUpdate(cb: (update: TabUpdate) => void): () => void
 }
 
 declare global {

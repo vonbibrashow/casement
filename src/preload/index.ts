@@ -1,24 +1,27 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { IPC, type CreatePanelArgs, type WorkspaceApi } from '@shared/ipc'
-import type { PanelBounds, PanelUpdate, WorkspaceState } from '@shared/types'
+import { IPC, type WorkspaceApi } from '@shared/ipc'
+import type { PanelBounds, TabUpdate, WorkspaceState } from '@shared/types'
 
 const api: WorkspaceApi = {
-  createPanel: (args: CreatePanelArgs) => ipcRenderer.invoke(IPC.panelCreate, args),
-  destroyPanel: (id) => ipcRenderer.invoke(IPC.panelDestroy, id),
-  setPanelBounds: (id, bounds: PanelBounds) => ipcRenderer.invoke(IPC.panelSetBounds, id, bounds),
-  setPanelVisible: (id, visible) => ipcRenderer.invoke(IPC.panelSetVisible, id, visible),
-  navigate: (id, url) => ipcRenderer.invoke(IPC.panelNavigate, id, url),
-  back: (id) => ipcRenderer.invoke(IPC.panelBack, id),
-  forward: (id) => ipcRenderer.invoke(IPC.panelForward, id),
-  reload: (id) => ipcRenderer.invoke(IPC.panelReload, id),
-  stop: (id) => ipcRenderer.invoke(IPC.panelStop, id),
-  focusPanel: (id) => ipcRenderer.invoke(IPC.panelFocus, id),
+  ensurePanel: (panelId) => ipcRenderer.invoke(IPC.panelEnsure, panelId),
+  destroyPanel: (panelId) => ipcRenderer.invoke(IPC.panelDestroy, panelId),
+  setPanelBounds: (panelId, bounds: PanelBounds) => ipcRenderer.invoke(IPC.panelSetBounds, panelId, bounds),
+  setPanelVisible: (panelId, visible) => ipcRenderer.invoke(IPC.panelSetVisible, panelId, visible),
+  focusPanel: (panelId) => ipcRenderer.invoke(IPC.panelFocus, panelId),
+  createTab: (panelId, tabId, url) => ipcRenderer.invoke(IPC.tabCreate, panelId, tabId, url),
+  destroyTab: (panelId, tabId) => ipcRenderer.invoke(IPC.tabDestroy, panelId, tabId),
+  activateTab: (panelId, tabId) => ipcRenderer.invoke(IPC.tabActivate, panelId, tabId),
+  navigate: (panelId, tabId, url) => ipcRenderer.invoke(IPC.tabNavigate, panelId, tabId, url),
+  back: (panelId, tabId) => ipcRenderer.invoke(IPC.tabBack, panelId, tabId),
+  forward: (panelId, tabId) => ipcRenderer.invoke(IPC.tabForward, panelId, tabId),
+  reload: (panelId, tabId) => ipcRenderer.invoke(IPC.tabReload, panelId, tabId),
+  stop: (panelId, tabId) => ipcRenderer.invoke(IPC.tabStop, panelId, tabId),
   loadWorkspace: () => ipcRenderer.invoke(IPC.workspaceLoad) as Promise<WorkspaceState | null>,
   saveWorkspace: (state: WorkspaceState) => ipcRenderer.invoke(IPC.workspaceSave, state),
-  onPanelUpdate: (cb: (update: PanelUpdate) => void) => {
-    const listener = (_e: unknown, update: PanelUpdate): void => cb(update)
-    ipcRenderer.on(IPC.panelUpdate, listener)
-    return () => ipcRenderer.removeListener(IPC.panelUpdate, listener)
+  onTabUpdate: (cb: (update: TabUpdate) => void) => {
+    const listener = (_e: unknown, update: TabUpdate): void => cb(update)
+    ipcRenderer.on(IPC.tabUpdate, listener)
+    return () => ipcRenderer.removeListener(IPC.tabUpdate, listener)
   }
 }
 

@@ -8,6 +8,10 @@ export function newPanelId(): string {
   return `panel-${crypto.randomUUID()}`
 }
 
+export function newTabId(): string {
+  return `tab-${crypto.randomUUID()}`
+}
+
 /** All panel ids present in the tree, left-to-right / top-to-bottom. */
 export function panelIds(node: LayoutNode): string[] {
   if (node.type === 'panel') return [node.id]

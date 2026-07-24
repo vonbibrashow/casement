@@ -1,113 +1,109 @@
-import { WebContentsView, session } from 'electron'
-import type { PanelBounds, PanelUpdate } from '@shared/types'
+import { session, type BrowserWindow } from 'electron'
+import { Tab } from './Tab'
+import type { PanelBounds, TabUpdate } from '@shared/types'
 
 /**
- * A single browser panel: a fully independent Chromium `WebContentsView` with
- * its own persistent session partition (cookies / cache / storage / history are
- * isolated per panel). The renderer positions it by pushing pixel bounds.
+ * A panel: a container of tabs. Only the active tab's `WebContentsView` is
+ * visible and positioned; the rest are kept alive but hidden for instant
+ * switching. The panel owns attaching/detaching its tabs' views to the window.
  */
 export class Panel {
   readonly id: string
-  readonly view: WebContentsView
+  private tabs = new Map<string, Tab>()
+  private activeTabId: string | null = null
   private bounds: PanelBounds = { x: 0, y: 0, width: 0, height: 0 }
   private visible = true
 
-  constructor(id: string, private onUpdate: (u: PanelUpdate) => void) {
+  constructor(id: string, private window: BrowserWindow, private onUpdate: (u: TabUpdate) => void) {
     this.id = id
-    this.view = new WebContentsView({
-      webPreferences: {
-        // Per-panel partition → independent cookies, cache and session.
-        partition: `persist:panel-${id}`,
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true
-      }
-    })
-    this.view.setBorderRadius(6)
-    this.wireEvents()
   }
 
-  private wireEvents(): void {
-    const wc = this.view.webContents
+  hasTab(tabId: string): boolean {
+    return this.tabs.has(tabId)
+  }
 
-    const pushNav = (): void => {
-      this.onUpdate({
-        id: this.id,
-        url: wc.getURL(),
-        title: wc.getTitle(),
-        canGoBack: wc.navigationHistory.canGoBack(),
-        canGoForward: wc.navigationHistory.canGoForward()
-      })
+  createTab(tabId: string, url: string): void {
+    if (this.tabs.has(tabId)) return
+    const tab = new Tab(this.id, tabId, this.onUpdate)
+    this.window.contentView.addChildView(tab.view)
+    tab.setBounds(this.bounds)
+    this.tabs.set(tabId, tab)
+    tab.load(url)
+    if (!this.activeTabId) this.activateTab(tabId)
+  }
+
+  destroyTab(tabId: string): void {
+    const tab = this.tabs.get(tabId)
+    if (!tab) return
+    this.window.contentView.removeChildView(tab.view)
+    tab.destroy()
+    this.tabs.delete(tabId)
+    if (this.activeTabId === tabId) {
+      this.activeTabId = null
+      const next = this.tabs.keys().next().value
+      if (next) this.activateTab(next)
     }
-
-    wc.on('did-start-loading', () => this.onUpdate({ id: this.id, isLoading: true }))
-    wc.on('did-stop-loading', () => {
-      this.onUpdate({ id: this.id, isLoading: false })
-      pushNav()
-    })
-    wc.on('did-navigate', pushNav)
-    wc.on('did-navigate-in-page', pushNav)
-    wc.on('page-title-updated', (_e, title) => this.onUpdate({ id: this.id, title }))
-
-    // Locked workspace: never spawn floating windows — keep navigation docked
-    // inside the panel that triggered it.
-    wc.setWindowOpenHandler(({ url }) => {
-      void wc.loadURL(url)
-      return { action: 'deny' }
-    })
   }
 
-  load(url: string): void {
-    void this.view.webContents.loadURL(url).catch(() => {
-      /* Bad URLs / offline — surfaced to the user by the page itself. */
-    })
+  activateTab(tabId: string): void {
+    if (!this.tabs.has(tabId) || this.activeTabId === tabId) {
+      if (this.tabs.has(tabId)) this.activeTabId = tabId
+      return
+    }
+    const prev = this.activeTabId ? this.tabs.get(this.activeTabId) : undefined
+    prev?.setVisible(false)
+    this.activeTabId = tabId
+    const tab = this.tabs.get(tabId)!
+    tab.setVisible(this.visible)
+    tab.setBounds(this.bounds)
+  }
+
+  private active(): Tab | undefined {
+    return this.activeTabId ? this.tabs.get(this.activeTabId) : undefined
   }
 
   setBounds(bounds: PanelBounds): void {
     this.bounds = bounds
-    this.applyBounds()
+    this.active()?.setBounds(bounds)
   }
 
   setVisible(visible: boolean): void {
     this.visible = visible
-    this.view.setVisible(visible)
-    this.applyBounds()
+    this.active()?.setVisible(visible)
   }
 
-  private applyBounds(): void {
-    const b = this.bounds
-    // Collapse offscreen when hidden so it never intercepts input.
-    this.view.setBounds(
-      this.visible
-        ? { x: Math.round(b.x), y: Math.round(b.y), width: Math.round(b.width), height: Math.round(b.height) }
-        : { x: 0, y: 0, width: 0, height: 0 }
-    )
+  navigate(tabId: string, url: string): void {
+    this.tabs.get(tabId)?.load(url)
   }
 
-  back(): void {
-    if (this.view.webContents.navigationHistory.canGoBack()) this.view.webContents.navigationHistory.goBack()
+  back(tabId: string): void {
+    this.tabs.get(tabId)?.back()
   }
 
-  forward(): void {
-    if (this.view.webContents.navigationHistory.canGoForward()) this.view.webContents.navigationHistory.goForward()
+  forward(tabId: string): void {
+    this.tabs.get(tabId)?.forward()
   }
 
-  reload(): void {
-    this.view.webContents.reload()
+  reload(tabId: string): void {
+    this.tabs.get(tabId)?.reload()
   }
 
-  stop(): void {
-    this.view.webContents.stop()
+  stop(tabId: string): void {
+    this.tabs.get(tabId)?.stop()
   }
 
   focus(): void {
-    this.view.webContents.focus()
+    this.active()?.focus()
   }
 
   destroy(): void {
-    // Clear the session cache so orphaned partitions don't grow unbounded.
-    const part = `persist:panel-${this.id}`
-    this.view.webContents.close()
-    void session.fromPartition(part).clearCache().catch(() => {})
+    for (const tab of this.tabs.values()) {
+      this.window.contentView.removeChildView(tab.view)
+      tab.destroy()
+    }
+    this.tabs.clear()
+    this.activeTabId = null
+    // Independent per-panel session — clear its cache when the panel is gone.
+    void session.fromPartition(`persist:panel-${this.id}`).clearCache().catch(() => {})
   }
 }
