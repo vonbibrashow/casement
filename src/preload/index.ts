@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, type WorkspaceApi } from '@shared/ipc'
-import type { PanelBounds, TabUpdate, WorkspaceState } from '@shared/types'
+import type { AppState, PanelBounds, TabUpdate } from '@shared/types'
 
 const api: WorkspaceApi = {
   ensurePanel: (panelId) => ipcRenderer.invoke(IPC.panelEnsure, panelId),
@@ -16,8 +16,8 @@ const api: WorkspaceApi = {
   forward: (panelId, tabId) => ipcRenderer.invoke(IPC.tabForward, panelId, tabId),
   reload: (panelId, tabId) => ipcRenderer.invoke(IPC.tabReload, panelId, tabId),
   stop: (panelId, tabId) => ipcRenderer.invoke(IPC.tabStop, panelId, tabId),
-  loadWorkspace: () => ipcRenderer.invoke(IPC.workspaceLoad) as Promise<WorkspaceState | null>,
-  saveWorkspace: (state: WorkspaceState) => ipcRenderer.invoke(IPC.workspaceSave, state),
+  loadApp: () => ipcRenderer.invoke(IPC.appLoad) as Promise<AppState | null>,
+  saveApp: (state: AppState) => ipcRenderer.invoke(IPC.appSave, state),
   onTabUpdate: (cb: (update: TabUpdate) => void) => {
     const listener = (_e: unknown, update: TabUpdate): void => cb(update)
     ipcRenderer.on(IPC.tabUpdate, listener)

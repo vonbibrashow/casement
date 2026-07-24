@@ -1,8 +1,8 @@
 import { ipcMain, type BrowserWindow } from 'electron'
 import { Panel } from './Panel'
-import { loadWorkspace, saveWorkspace } from './persistence'
+import { loadApp, saveApp } from './persistence'
 import { IPC } from '@shared/ipc'
-import type { PanelBounds, TabUpdate, WorkspaceState } from '@shared/types'
+import type { AppState, PanelBounds, TabUpdate } from '@shared/types'
 
 /**
  * Owns every native panel/tab for a window and brokers all IPC between the React
@@ -65,8 +65,8 @@ export class WorkspaceManager {
     ipcMain.handle(IPC.tabReload, (_e, panelId: string, tabId: string) => this.get(panelId)?.reload(tabId))
     ipcMain.handle(IPC.tabStop, (_e, panelId: string, tabId: string) => this.get(panelId)?.stop(tabId))
 
-    ipcMain.handle(IPC.workspaceLoad, () => loadWorkspace())
-    ipcMain.handle(IPC.workspaceSave, (_e, state: WorkspaceState) => saveWorkspace(state))
+    ipcMain.handle(IPC.appLoad, () => loadApp())
+    ipcMain.handle(IPC.appSave, (_e, state: AppState) => saveApp(state))
   }
 }
 

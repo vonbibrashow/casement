@@ -2,7 +2,7 @@
 // on `window.workspace`. Keeping these in one shared module means main, preload
 // and renderer can never drift out of sync.
 
-import type { PanelBounds, TabUpdate, WorkspaceState } from './types'
+import type { AppState, PanelBounds, TabUpdate } from './types'
 
 export const IPC = {
   // renderer → main (invoke)
@@ -19,8 +19,8 @@ export const IPC = {
   tabForward: 'tab:forward',
   tabReload: 'tab:reload',
   tabStop: 'tab:stop',
-  workspaceLoad: 'workspace:load',
-  workspaceSave: 'workspace:save',
+  appLoad: 'app:load',
+  appSave: 'app:save',
   // main → renderer (send)
   tabUpdate: 'tab:update'
 } as const
@@ -40,8 +40,8 @@ export interface WorkspaceApi {
   forward(panelId: string, tabId: string): Promise<void>
   reload(panelId: string, tabId: string): Promise<void>
   stop(panelId: string, tabId: string): Promise<void>
-  loadWorkspace(): Promise<WorkspaceState | null>
-  saveWorkspace(state: WorkspaceState): Promise<void>
+  loadApp(): Promise<AppState | null>
+  saveApp(state: AppState): Promise<void>
   onTabUpdate(cb: (update: TabUpdate) => void): () => void
 }
 

@@ -41,12 +41,29 @@ export interface PanelState {
   activeTabId: string
 }
 
-/** The full serializable workspace — everything needed to restore a session. */
-export interface WorkspaceState {
-  version: 2
+/** One saved workspace — a named layout + its panels/tabs. */
+export interface WorkspaceDoc {
+  id: string
+  name: string
+  /** Short display glyph (emoji) shown in the workspace rail. */
+  icon: string
   layout: LayoutNode
   panels: Record<string, PanelState>
   focusedPanelId: string | null
+}
+
+/** Lightweight workspace identity for the switcher (no panel data). */
+export interface WorkspaceMeta {
+  id: string
+  name: string
+  icon: string
+}
+
+/** The full serializable app state — every workspace + which one is active. */
+export interface AppState {
+  version: 3
+  workspaces: WorkspaceDoc[]
+  activeWorkspaceId: string
 }
 
 /** Pixel rectangle (CSS px === DIP at renderer zoom 1) for positioning a view. */

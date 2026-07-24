@@ -6,21 +6,31 @@ developers, traders, and researchers who need many live web apps visible at once
 
 Feels like VS Code / Obsidian / Figma, not like Chrome.
 
-## Status — Phase 1 MVP
+## Status
 
-Implemented:
+**Phase 1 MVP — done**
 
-- ✅ Electron shell (real Chromium, one `WebContentsView` per panel)
-- ✅ A browser panel with URL bar + Back / Forward / Reload / Stop
+- ✅ Electron shell (real Chromium `WebContentsView`, no iframes)
+- ✅ Browser panel with URL bar + Back / Forward / Reload / Stop
 - ✅ Independent session per panel (isolated cookies / cache / storage)
 - ✅ Split any panel Left / Right / Top / Bottom
 - ✅ Preset layouts: 1 / 2 / 4 panels
 - ✅ Drag dividers to resize
 - ✅ Locked layout (no floating windows — everything stays docked)
-- ✅ Automatic layout save + restore (close and reopen restores the workspace)
+- ✅ Automatic layout save + restore
 
-Not built yet (later phases, per spec): tabs-in-panels, workspace manager,
-sleeping/performance modes, templates, command palette, plugins, sync.
+**Phase 2 — in progress**
+
+- ✅ Tabs inside panels (each tab its own `WebContentsView`, sharing the panel session)
+- ✅ Workspace manager — multiple named workspaces, left-rail switcher, create / rename / delete, per-workspace saved sessions
+- ⬜ Drag-and-drop layout editing
+- ⬜ Keyboard shortcuts
+- ⬜ Command palette
+
+Persistence is versioned (v1 → v2 → v3) with automatic migration on load.
+
+Not built yet (Phase 3): sleeping/performance modes, templates, multi-monitor,
+plugins, cloud sync.
 
 ## Architecture
 
@@ -33,13 +43,17 @@ to position the native view. There are **no iframes** — every panel is a real 
 src/
   shared/      types + IPC contract (main ⇄ preload ⇄ renderer)
   main/        Electron main; owns WebContentsViews + persistence
-    workspace/ WorkspaceManager, Panel, persistence
+    workspace/ WorkspaceManager, Panel (tab container), Tab, persistence
   preload/     contextBridge → window.workspace
   renderer/    React + Zustand + Tailwind
     layout/    pure binary split-tree engine
-    store/     workspace store (state, native-panel reconcile, autosave)
-    components/ Toolbar, WorkspaceView (splitters), PanelFrame
+    store/     workspace store (state, native reconcile, autosave, workspaces)
+    components/ WorkspaceRail, Toolbar, WorkspaceView (splitters),
+                PanelFrame, TabStrip
 ```
+
+Only the **active** workspace has live native panels; switching workspaces tears
+them down and rebuilds the target's (on-disk sessions persist, so logins survive).
 
 The layout is a **binary split tree** — a node is either a panel or a split of two
 children — which yields 1 / 2 / 4 / N layouts and arbitrary resizing from one model.

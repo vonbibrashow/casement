@@ -12,6 +12,10 @@ export function newTabId(): string {
   return `tab-${crypto.randomUUID()}`
 }
 
+export function newWorkspaceId(): string {
+  return `ws-${crypto.randomUUID()}`
+}
+
 /** All panel ids present in the tree, left-to-right / top-to-bottom. */
 export function panelIds(node: LayoutNode): string[] {
   if (node.type === 'panel') return [node.id]
