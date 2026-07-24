@@ -1,7 +1,29 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
-import { useWorkspace } from '../store/workspaceStore'
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { useWorkspace, type DropTarget } from '../store/workspaceStore'
 import type { SplitEdge } from '../layout/tree'
 import { TabStrip } from './TabStrip'
+
+/** Find which panel (other than the dragged one) the cursor is over + which edge. */
+function hitTestPanels(x: number, y: number, sourceId: string): DropTarget | null {
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>('[data-panel-id]'))) {
+    const pid = el.dataset.panelId
+    if (!pid || pid === sourceId) continue
+    const r = el.getBoundingClientRect()
+    if (x < r.left || x > r.right || y < r.top || y > r.bottom) continue
+    const fx = (x - r.left) / r.width
+    const fy = (y - r.top) / r.height
+    const dists: Array<[SplitEdge, number]> = [
+      ['left', fx],
+      ['right', 1 - fx],
+      ['top', fy],
+      ['bottom', 1 - fy]
+    ]
+    let best = dists[0]
+    for (const d of dists) if (d[1] < best[1]) best = d
+    return { panelId: pid, edge: best[0] }
+  }
+  return null
+}
 
 export function PanelFrame({ id }: { id: string }): JSX.Element {
   const panel = useWorkspace((s) => s.panels[id])
@@ -17,6 +39,9 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
   const split = useWorkspace((s) => s.split)
   const closePanel = useWorkspace((s) => s.closePanel)
   const focusPanel = useWorkspace((s) => s.focusPanel)
+  const beginPanelDrag = useWorkspace((s) => s.beginPanelDrag)
+  const updatePanelDrag = useWorkspace((s) => s.updatePanelDrag)
+  const endPanelDrag = useWorkspace((s) => s.endPanelDrag)
 
   const viewportRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -69,8 +94,34 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
     inputRef.current?.blur()
   }
 
+  const startPanelDrag = (e: ReactPointerEvent): void => {
+    e.preventDefault()
+    beginPanelDrag(id)
+    const move = (ev: PointerEvent): void =>
+      updatePanelDrag({ x: ev.clientX, y: ev.clientY }, hitTestPanels(ev.clientX, ev.clientY, id))
+    const stop = (): void => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('keydown', onKey)
+    }
+    const up = (): void => {
+      stop()
+      endPanelDrag()
+    }
+    const onKey = (ev: KeyboardEvent): void => {
+      if (ev.key === 'Escape') {
+        updatePanelDrag({ x: 0, y: 0 }, null)
+        up()
+      }
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('keydown', onKey)
+  }
+
   return (
     <div
+      data-panel-id={id}
       onPointerDownCapture={() => focusPanel(id)}
       className={`flex h-full w-full flex-col overflow-hidden rounded-md border bg-surface ${
         focused ? 'border-accent/60' : 'border-surface-border'
@@ -79,6 +130,22 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
       <TabStrip panelId={id} />
 
       <div className="flex h-9 shrink-0 items-center gap-1 border-b border-surface-border px-1.5">
+        {canClose && (
+          <button
+            onPointerDown={startPanelDrag}
+            title="Drag to move panel"
+            className="flex h-6 w-4 shrink-0 cursor-grab items-center justify-center text-slate-600 hover:text-slate-300 active:cursor-grabbing"
+          >
+            <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor">
+              <circle cx="7.5" cy="5" r="1.2" />
+              <circle cx="12.5" cy="5" r="1.2" />
+              <circle cx="7.5" cy="10" r="1.2" />
+              <circle cx="12.5" cy="10" r="1.2" />
+              <circle cx="7.5" cy="15" r="1.2" />
+              <circle cx="12.5" cy="15" r="1.2" />
+            </svg>
+          </button>
+        )}
         <IconButton label="Back" disabled={!activeTab.canGoBack} onClick={() => back(id, tabId)}>
           <path d="M12.5 15l-5-5 5-5" />
         </IconButton>

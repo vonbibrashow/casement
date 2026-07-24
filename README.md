@@ -19,13 +19,13 @@ Feels like VS Code / Obsidian / Figma, not like Chrome.
 - ✅ Locked layout (no floating windows — everything stays docked)
 - ✅ Automatic layout save + restore
 
-**Phase 2 — in progress**
+**Phase 2 — done**
 
 - ✅ Tabs inside panels (each tab its own `WebContentsView`, sharing the panel session)
 - ✅ Workspace manager — multiple named workspaces, left-rail switcher, create / rename / delete, per-workspace saved sessions
 - ✅ Keyboard shortcuts (resolved in main via `before-input-event`, so they fire even while a web page has focus)
 - ✅ Command palette (Ctrl+K)
-- ⬜ Drag-and-drop layout editing
+- ✅ Drag-and-drop layout editing — grab a panel's grip and drop it on another panel's edge to re-dock; the moved panel keeps its tabs/session
 
 Persistence is versioned (v1 → v2 → v3) with automatic migration on load.
 

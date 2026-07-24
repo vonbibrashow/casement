@@ -6,6 +6,7 @@ import { Toolbar } from './components/Toolbar'
 import { WorkspaceView } from './components/WorkspaceView'
 import { WorkspaceRail } from './components/WorkspaceRail'
 import { CommandPalette } from './components/CommandPalette'
+import { PanelDragLayer } from './components/PanelDragLayer'
 
 // Guard against React StrictMode's double-invoked effects seeding two workspaces.
 let bootstrapped = false
@@ -57,6 +58,7 @@ export function App(): JSX.Element {
           <CommandPalette />
         </div>
       </div>
+      <PanelDragLayer />
     </div>
   )
 }

@@ -10,6 +10,7 @@ import {
 } from '@shared/types'
 import {
   buildPreset,
+  movePanel,
   newPanelId,
   newTabId,
   newWorkspaceId,
@@ -19,6 +20,11 @@ import {
   splitPanel,
   type SplitEdge
 } from '../layout/tree'
+
+export interface DropTarget {
+  panelId: string
+  edge: SplitEdge
+}
 
 // --- native-side mirror (active workspace only) -----------------------------
 // Only the active workspace has live WebContentsViews. Switching workspaces
@@ -48,6 +54,14 @@ interface WorkspaceStore {
   paletteOpen: boolean
   openPalette(): void
   closePalette(): void
+
+  // Panel drag-and-drop docking.
+  draggingPanelId: string | null
+  dropTarget: DropTarget | null
+  dragPos: { x: number; y: number } | null
+  beginPanelDrag(panelId: string): void
+  updatePanelDrag(pos: { x: number; y: number }, target: DropTarget | null): void
+  endPanelDrag(): void
 
   /** Set focus without re-focusing native content (used for focus echoes). */
   setFocusedPanel(id: string): void
@@ -181,9 +195,31 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     panels: {},
     focusedPanelId: null,
     paletteOpen: false,
+    draggingPanelId: null,
+    dropTarget: null,
+    dragPos: null,
 
     openPalette: () => set({ paletteOpen: true }),
     closePalette: () => set({ paletteOpen: false }),
+
+    beginPanelDrag(panelId) {
+      // Hide native views so DOM drop indicators are visible above them.
+      panelIds(get().layout).forEach((id) => void window.workspace.setPanelVisible(id, false))
+      set({ draggingPanelId: panelId, dropTarget: null, dragPos: null })
+    },
+    updatePanelDrag(pos, target) {
+      set({ dragPos: pos, dropTarget: target })
+    },
+    endPanelDrag() {
+      const { draggingPanelId, dropTarget, layout, panels, focusedPanelId } = get()
+      if (draggingPanelId && dropTarget && dropTarget.panelId !== draggingPanelId) {
+        const next = movePanel(layout, draggingPanelId, dropTarget.panelId, dropTarget.edge)
+        commit(next, panels, focusedPanelId) // same panel ids → no native create/destroy
+      }
+      // Restore native views for the (possibly restructured) layout.
+      panelIds(get().layout).forEach((id) => void window.workspace.setPanelVisible(id, true))
+      set({ draggingPanelId: null, dropTarget: null, dragPos: null })
+    },
     setFocusedPanel: (id) => {
       if (get().focusedPanelId !== id) {
         set({ focusedPanelId: id })

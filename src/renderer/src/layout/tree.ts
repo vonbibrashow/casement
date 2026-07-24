@@ -53,6 +53,31 @@ export function splitPanel(node: LayoutNode, targetId: string, edge: SplitEdge, 
   }
 }
 
+/** Insert an existing node beside panel `targetId` on the given edge. */
+function insertBeside(node: LayoutNode, targetId: string, insert: LayoutNode, edge: SplitEdge): LayoutNode {
+  if (node.type === 'panel') {
+    if (node.id !== targetId) return node
+    const { direction, before } = edgeConfig[edge]
+    const children: [LayoutNode, LayoutNode] = before ? [insert, node] : [node, insert]
+    return { type: 'split', direction, children, sizes: [0.5, 0.5] }
+  }
+  return {
+    ...node,
+    children: [insertBeside(node.children[0], targetId, insert, edge), insertBeside(node.children[1], targetId, insert, edge)]
+  }
+}
+
+/**
+ * Move panel `sourceId` next to panel `targetId` on the given edge, reusing the
+ * source panel node (its id — hence its tabs/session — is preserved).
+ */
+export function movePanel(root: LayoutNode, sourceId: string, targetId: string, edge: SplitEdge): LayoutNode {
+  if (sourceId === targetId) return root
+  const without = removePanel(root, sourceId)
+  if (!without) return root
+  return insertBeside(without, targetId, { type: 'panel', id: sourceId }, edge)
+}
+
 /** Remove a panel, collapsing any split left with a single child. */
 export function removePanel(node: LayoutNode, targetId: string): LayoutNode | null {
   if (node.type === 'panel') return node.id === targetId ? null : node
