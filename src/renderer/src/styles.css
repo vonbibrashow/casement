@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  @apply bg-surface-sunken text-slate-200 font-sans antialiased;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* The region a native WebContentsView is positioned over. Shown only until the
+   native view paints on top of it. */
+.panel-viewport {
+  @apply bg-surface-sunken;
+  background-image: radial-gradient(circle at center, rgba(109, 140, 255, 0.06), transparent 60%);
+}
