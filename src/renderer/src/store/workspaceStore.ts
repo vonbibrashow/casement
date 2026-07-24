@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import {
   DEFAULT_URL,
+  type AppState,
   type LayoutNode,
   type PanelState,
   type TabState,
@@ -59,10 +60,13 @@ interface WorkspaceStore {
   panels: Record<string, PanelState>
   focusedPanelId: string | null
 
-  // Command palette overlay.
+  // Command palette + plugins modal overlays.
   paletteOpen: boolean
   openPalette(): void
   closePalette(): void
+  pluginsOpen: boolean
+  openPlugins(): void
+  closePlugins(): void
 
   // Panel drag-and-drop docking.
   draggingPanelId: string | null
@@ -83,6 +87,10 @@ interface WorkspaceStore {
   renameWorkspace(id: string, name: string): void
   deleteWorkspace(id: string): void
 
+  // sync (export / import all workspaces via a portable file)
+  exportWorkspaces(): void
+  importWorkspaces(): Promise<void>
+
   // layout
   split(panelId: string, edge: SplitEdge): void
   closePanel(panelId: string): void
@@ -91,7 +99,7 @@ interface WorkspaceStore {
   focusPanel(panelId: string): void
 
   // tabs
-  addTab(panelId: string): void
+  addTab(panelId: string, url?: string): void
   closeTab(panelId: string, tabId: string): void
   activateTab(panelId: string, tabId: string): void
 
@@ -101,6 +109,7 @@ interface WorkspaceStore {
   forward(panelId: string, tabId: string): void
   reload(panelId: string, tabId: string): void
   stop(panelId: string, tabId: string): void
+  toggleDevTools(panelId: string, tabId: string): void
 
   // performance
   runPerformancePass(): void
@@ -231,6 +240,20 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     inactiveDocs.set(activeWorkspaceId, { layout, panels, focusedPanelId })
   }
 
+  /** Load a full AppState into the store, replacing all workspaces + panels. */
+  function loadAppState(appState: AppState): void {
+    const active = appState.workspaces.find((w) => w.id === appState.activeWorkspaceId) ?? appState.workspaces[0]
+    inactiveDocs.clear()
+    for (const w of appState.workspaces) {
+      if (w.id !== active.id) inactiveDocs.set(w.id, { layout: w.layout, panels: w.panels, focusedPanelId: w.focusedPanelId })
+    }
+    set({
+      workspaces: appState.workspaces.map(({ id, name, icon }) => ({ id, name, icon })),
+      activeWorkspaceId: active.id
+    })
+    commit(active.layout, normalizeStatuses(active.panels), active.focusedPanelId)
+  }
+
   return {
     ready: false,
     workspaces: [],
@@ -239,12 +262,15 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     panels: {},
     focusedPanelId: null,
     paletteOpen: false,
+    pluginsOpen: false,
     draggingPanelId: null,
     dropTarget: null,
     dragPos: null,
 
     openPalette: () => set({ paletteOpen: true }),
     closePalette: () => set({ paletteOpen: false }),
+    openPlugins: () => set({ pluginsOpen: true }),
+    closePlugins: () => set({ pluginsOpen: false }),
 
     beginPanelDrag(panelId) {
       // Hide native views so DOM drop indicators are visible above them.
@@ -276,18 +302,7 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
       window.workspace.onTabUpdate((u) => get().applyTabUpdate(u))
 
       if (appState && appState.workspaces.length > 0) {
-        const active = appState.workspaces.find((w) => w.id === appState.activeWorkspaceId) ?? appState.workspaces[0]
-        inactiveDocs.clear()
-        for (const w of appState.workspaces) {
-          if (w.id !== active.id) {
-            inactiveDocs.set(w.id, { layout: w.layout, panels: w.panels, focusedPanelId: w.focusedPanelId })
-          }
-        }
-        set({
-          workspaces: appState.workspaces.map(({ id, name, icon }) => ({ id, name, icon })),
-          activeWorkspaceId: active.id
-        })
-        commit(active.layout, normalizeStatuses(active.panels), active.focusedPanelId)
+        loadAppState(appState)
       } else {
         const id = newWorkspaceId()
         set({ workspaces: [{ id, name: 'Workspace', icon: WORKSPACE_ICONS[0] }], activeWorkspaceId: id })
@@ -338,6 +353,18 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
       scheduleSave()
     },
 
+    exportWorkspaces() {
+      void window.workspace.exportApp(buildAppState())
+    },
+
+    async importWorkspaces() {
+      const imported = await window.workspace.importApp()
+      if (imported && imported.workspaces.length > 0) {
+        loadAppState(imported)
+        scheduleSave()
+      }
+    },
+
     split(panelId, edge) {
       const { layout, panels } = get()
       const id = newPanelId()
@@ -377,10 +404,10 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
       scheduleSave()
     },
 
-    addTab(panelId) {
+    addTab(panelId, url) {
       const panel = get().panels[panelId]
       if (!panel) return
-      const tab = freshTab() // live
+      const tab = freshTab(url) // live
       // The previously active tab drops to paused (kept warm, may sleep later).
       const tabs = panel.tabs.map((t) => (t.id === panel.activeTabId && t.status === 'live' ? { ...t, status: 'paused' as const } : t))
       updatePanel(panelId, { ...panel, tabs: [...tabs, tab], activeTabId: tab.id })
@@ -436,6 +463,7 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     forward: (panelId, tabId) => void window.workspace.forward(panelId, tabId),
     reload: (panelId, tabId) => void window.workspace.reload(panelId, tabId),
     stop: (panelId, tabId) => void window.workspace.stop(panelId, tabId),
+    toggleDevTools: (panelId, tabId) => void window.workspace.toggleDevTools(panelId, tabId),
 
     runPerformancePass() {
       const { panels } = get()

@@ -103,6 +103,10 @@ export class Panel {
     this.tabs.get(tabId)?.stop()
   }
 
+  toggleDevTools(tabId: string): void {
+    this.tabs.get(tabId)?.toggleDevTools()
+  }
+
   focus(): void {
     this.active()?.focus()
   }

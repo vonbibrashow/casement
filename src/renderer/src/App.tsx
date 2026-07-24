@@ -7,6 +7,8 @@ import { WorkspaceView } from './components/WorkspaceView'
 import { WorkspaceRail } from './components/WorkspaceRail'
 import { CommandPalette } from './components/CommandPalette'
 import { PanelDragLayer } from './components/PanelDragLayer'
+import { PluginsModal } from './components/PluginsModal'
+import { pluginHost } from './plugins/host'
 
 // Guard against React StrictMode's double-invoked effects seeding two workspaces.
 let bootstrapped = false
@@ -19,6 +21,7 @@ export function App(): JSX.Element {
   useEffect(() => {
     if (bootstrapped) return
     bootstrapped = true
+    pluginHost.init()
     void init()
   }, [init])
 
@@ -56,6 +59,7 @@ export function App(): JSX.Element {
             <div className="flex h-full items-center justify-center text-sm text-slate-500">Restoring workspace…</div>
           )}
           <CommandPalette />
+          <PluginsModal />
         </div>
       </div>
       <PanelDragLayer />

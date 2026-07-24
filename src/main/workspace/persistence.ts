@@ -8,7 +8,15 @@ const filePath = (): string => join(app.getPath('userData'), 'workspace.json')
 
 export async function loadApp(): Promise<AppState | null> {
   try {
-    const raw = await readFile(filePath(), 'utf8')
+    return parseAppJson(await readFile(filePath(), 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+/** Parse + migrate any supported saved format (v1/v2/v3). Used by load + import. */
+export function parseAppJson(raw: string): AppState | null {
+  try {
     const parsed = JSON.parse(raw) as { version?: number }
     if (!parsed || typeof parsed.version !== 'number') return null
     if (parsed.version === 3) {

@@ -2,6 +2,7 @@ import { displayCombo, type CommandId } from '@shared/keymap'
 import { useWorkspace } from './store/workspaceStore'
 import { panelIds, type SplitEdge } from './layout/tree'
 import { TEMPLATES } from './templates'
+import { pluginHost } from './plugins/host'
 
 /** Ask the focused panel's URL bar to take focus (handled in PanelFrame). */
 export function requestFocusUrl(panelId: string): void {
@@ -76,6 +77,12 @@ export function runCommand(id: CommandId, panelIdArg?: string): void {
     case 'layout.preset4':
       s.applyPreset(4)
       break
+    case 'window.nextDisplay':
+      void window.workspace.moveToDisplay('next')
+      break
+    case 'window.prevDisplay':
+      void window.workspace.moveToDisplay('prev')
+      break
   }
 }
 
@@ -124,6 +131,8 @@ export function useCommands(): PaletteCommand[] {
     cmd('layout.preset1', 'Layout: 1 Panel', 'Layout'),
     cmd('layout.preset2', 'Layout: 2 Panels', 'Layout'),
     cmd('layout.preset4', 'Layout: 4 Panels', 'Layout'),
+    cmd('window.nextDisplay', 'Move Window to Next Display', 'Window'),
+    cmd('window.prevDisplay', 'Move Window to Previous Display', 'Window'),
     cmd('workspace.new', 'New Workspace', 'Workspace'),
     {
       id: 'perf.sleepBackground',
@@ -133,7 +142,8 @@ export function useCommands(): PaletteCommand[] {
     }
   ]
 
-  for (const t of TEMPLATES) {
+  // Core + plugin-contributed templates.
+  for (const t of [...TEMPLATES, ...pluginHost.getTemplates()]) {
     list.push({
       id: `workspace.template:${t.id}`,
       title: `New Workspace: ${t.name}`,
@@ -141,6 +151,27 @@ export function useCommands(): PaletteCommand[] {
       run: () => useWorkspace.getState().createWorkspace(t)
     })
   }
+
+  // Plugin-contributed commands + plugin management.
+  for (const c of pluginHost.getCommands()) list.push(c)
+  list.push({
+    id: 'plugins.manage',
+    title: 'Manage Plugins…',
+    subtitle: 'Plugins',
+    run: () => useWorkspace.getState().openPlugins()
+  })
+  list.push({
+    id: 'sync.export',
+    title: 'Export Workspaces…',
+    subtitle: 'Sync',
+    run: () => useWorkspace.getState().exportWorkspaces()
+  })
+  list.push({
+    id: 'sync.import',
+    title: 'Import Workspaces…',
+    subtitle: 'Sync',
+    run: () => void useWorkspace.getState().importWorkspaces()
+  })
 
   for (const ws of workspaces) {
     if (ws.id !== activeId) {

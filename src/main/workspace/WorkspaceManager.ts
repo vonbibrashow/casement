@@ -1,6 +1,8 @@
-import { ipcMain, type BrowserWindow } from 'electron'
+import { ipcMain, screen, type BrowserWindow } from 'electron'
 import { Panel } from './Panel'
 import { loadApp, saveApp } from './persistence'
+import { moveWindowToDisplay } from '../windowState'
+import { exportApp, importApp } from './sync'
 import { IPC } from '@shared/ipc'
 import type { AppState, PanelBounds, TabUpdate } from '@shared/types'
 import type { CommandId } from '@shared/keymap'
@@ -59,6 +61,8 @@ export class WorkspaceManager {
     ipcMain.handle(IPC.chromeFocus, () => {
       if (!this.window.isDestroyed()) this.window.webContents.focus()
     })
+    ipcMain.handle(IPC.displayMove, (_e, direction: 'next' | 'prev') => moveWindowToDisplay(this.window, direction))
+    ipcMain.handle(IPC.displayInfo, () => screen.getAllDisplays().length)
 
     ipcMain.handle(IPC.tabCreate, (_e, panelId: string, tabId: string, url: string) =>
       this.ensurePanel(panelId).createTab(tabId, normalizeUrl(url))
@@ -72,9 +76,12 @@ export class WorkspaceManager {
     ipcMain.handle(IPC.tabForward, (_e, panelId: string, tabId: string) => this.get(panelId)?.forward(tabId))
     ipcMain.handle(IPC.tabReload, (_e, panelId: string, tabId: string) => this.get(panelId)?.reload(tabId))
     ipcMain.handle(IPC.tabStop, (_e, panelId: string, tabId: string) => this.get(panelId)?.stop(tabId))
+    ipcMain.handle(IPC.tabDevtools, (_e, panelId: string, tabId: string) => this.get(panelId)?.toggleDevTools(tabId))
 
     ipcMain.handle(IPC.appLoad, () => loadApp())
     ipcMain.handle(IPC.appSave, (_e, state: AppState) => saveApp(state))
+    ipcMain.handle(IPC.appExport, (_e, state: AppState) => exportApp(this.window, state))
+    ipcMain.handle(IPC.appImport, () => importApp(this.window))
   }
 }
 

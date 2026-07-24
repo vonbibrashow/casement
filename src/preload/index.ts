@@ -10,6 +10,8 @@ const api: WorkspaceApi = {
   setPanelVisible: (panelId, visible) => ipcRenderer.invoke(IPC.panelSetVisible, panelId, visible),
   focusPanel: (panelId) => ipcRenderer.invoke(IPC.panelFocus, panelId),
   focusChrome: () => ipcRenderer.invoke(IPC.chromeFocus),
+  moveToDisplay: (direction) => ipcRenderer.invoke(IPC.displayMove, direction) as Promise<number>,
+  displayCount: () => ipcRenderer.invoke(IPC.displayInfo) as Promise<number>,
   createTab: (panelId, tabId, url) => ipcRenderer.invoke(IPC.tabCreate, panelId, tabId, url),
   destroyTab: (panelId, tabId) => ipcRenderer.invoke(IPC.tabDestroy, panelId, tabId),
   activateTab: (panelId, tabId) => ipcRenderer.invoke(IPC.tabActivate, panelId, tabId),
@@ -18,8 +20,11 @@ const api: WorkspaceApi = {
   forward: (panelId, tabId) => ipcRenderer.invoke(IPC.tabForward, panelId, tabId),
   reload: (panelId, tabId) => ipcRenderer.invoke(IPC.tabReload, panelId, tabId),
   stop: (panelId, tabId) => ipcRenderer.invoke(IPC.tabStop, panelId, tabId),
+  toggleDevTools: (panelId, tabId) => ipcRenderer.invoke(IPC.tabDevtools, panelId, tabId),
   loadApp: () => ipcRenderer.invoke(IPC.appLoad) as Promise<AppState | null>,
   saveApp: (state: AppState) => ipcRenderer.invoke(IPC.appSave, state),
+  exportApp: (state: AppState) => ipcRenderer.invoke(IPC.appExport, state) as Promise<boolean>,
+  importApp: () => ipcRenderer.invoke(IPC.appImport) as Promise<AppState | null>,
   onTabUpdate: (cb: (update: TabUpdate) => void) => {
     const listener = (_e: unknown, update: TabUpdate): void => cb(update)
     ipcRenderer.on(IPC.tabUpdate, listener)

@@ -1,15 +1,16 @@
 import { app, BrowserWindow, Menu, shell } from 'electron'
 import { join } from 'node:path'
 import { WorkspaceManager } from './workspace/WorkspaceManager'
+import { loadWindowState, trackWindowState } from './windowState'
 
 // No native menu: our own keymap owns Ctrl+R / Ctrl+W etc. so they act on the
 // active tab/panel instead of reloading or closing the chrome window.
 Menu.setApplicationMenu(null)
 
 function createWindow(): void {
+  const saved = loadWindowState()
   const win = new BrowserWindow({
-    width: 1440,
-    height: 900,
+    ...(saved ? { x: saved.x, y: saved.y, width: saved.width, height: saved.height } : { width: 1440, height: 900 }),
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#141519',
@@ -25,6 +26,7 @@ function createWindow(): void {
 
   // Own the panels for this window.
   new WorkspaceManager(win)
+  trackWindowState(win)
 
   // Open normal target=_blank links from the chrome UI itself externally.
   win.webContents.setWindowOpenHandler(({ url }) => {

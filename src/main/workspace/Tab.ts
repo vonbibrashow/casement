@@ -123,6 +123,12 @@ export class Tab {
     this.view.webContents.stop()
   }
 
+  toggleDevTools(): void {
+    const wc = this.view.webContents
+    if (wc.isDevToolsOpened()) wc.closeDevTools()
+    else wc.openDevTools({ mode: 'detach' })
+  }
+
   focus(): void {
     this.view.webContents.focus()
   }

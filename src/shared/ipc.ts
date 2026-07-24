@@ -13,6 +13,8 @@ export const IPC = {
   panelSetVisible: 'panel:set-visible',
   panelFocus: 'panel:focus',
   chromeFocus: 'chrome:focus',
+  displayMove: 'display:move',
+  displayInfo: 'display:info',
   tabCreate: 'tab:create',
   tabDestroy: 'tab:destroy',
   tabActivate: 'tab:activate',
@@ -21,8 +23,11 @@ export const IPC = {
   tabForward: 'tab:forward',
   tabReload: 'tab:reload',
   tabStop: 'tab:stop',
+  tabDevtools: 'tab:devtools',
   appLoad: 'app:load',
   appSave: 'app:save',
+  appExport: 'app:export',
+  appImport: 'app:import',
   // main → renderer (send)
   tabUpdate: 'tab:update',
   shortcut: 'shortcut',
@@ -38,6 +43,10 @@ export interface WorkspaceApi {
   focusPanel(panelId: string): Promise<void>
   /** Move keyboard focus back to the chrome (e.g. when opening the palette). */
   focusChrome(): Promise<void>
+  /** Move the app window to the next/previous display. Returns display count. */
+  moveToDisplay(direction: 'next' | 'prev'): Promise<number>
+  /** How many displays are currently attached. */
+  displayCount(): Promise<number>
   createTab(panelId: string, tabId: string, url: string): Promise<void>
   destroyTab(panelId: string, tabId: string): Promise<void>
   activateTab(panelId: string, tabId: string): Promise<void>
@@ -46,8 +55,13 @@ export interface WorkspaceApi {
   forward(panelId: string, tabId: string): Promise<void>
   reload(panelId: string, tabId: string): Promise<void>
   stop(panelId: string, tabId: string): Promise<void>
+  toggleDevTools(panelId: string, tabId: string): Promise<void>
   loadApp(): Promise<AppState | null>
   saveApp(state: AppState): Promise<void>
+  /** Export all workspaces to a user-chosen file. Resolves true if saved. */
+  exportApp(state: AppState): Promise<boolean>
+  /** Import workspaces from a user-chosen file (migrated if older format). */
+  importApp(): Promise<AppState | null>
   onTabUpdate(cb: (update: TabUpdate) => void): () => void
   /** A shortcut fired inside a panel's web content (page had focus). */
   onShortcut(cb: (command: CommandId, panelId: string) => void): () => void

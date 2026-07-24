@@ -20,6 +20,8 @@ export type CommandId =
   | 'layout.preset1'
   | 'layout.preset2'
   | 'layout.preset4'
+  | 'window.nextDisplay'
+  | 'window.prevDisplay'
 
 interface Binding {
   combo: string
@@ -43,7 +45,9 @@ export const KEYMAP: Binding[] = [
   { combo: 'mod+shift+n', command: 'workspace.new' },
   { combo: 'mod+alt+1', command: 'layout.preset1' },
   { combo: 'mod+alt+2', command: 'layout.preset2' },
-  { combo: 'mod+alt+4', command: 'layout.preset4' }
+  { combo: 'mod+alt+4', command: 'layout.preset4' },
+  { combo: 'mod+shift+right', command: 'window.nextDisplay' },
+  { combo: 'mod+shift+left', command: 'window.prevDisplay' }
 ]
 
 /** Human-readable accelerator for display (e.g. "Ctrl K"). */
