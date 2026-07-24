@@ -58,7 +58,15 @@ function migrateV1ToV2(v1: V1Workspace): V2Workspace {
       id,
       activeTabId: tabId,
       tabs: [
-        { id: tabId, url: p.url ?? DEFAULT_URL, title: p.title ?? 'New Tab', canGoBack: false, canGoForward: false, isLoading: false }
+        {
+          id: tabId,
+          url: p.url ?? DEFAULT_URL,
+          title: p.title ?? 'New Tab',
+          canGoBack: false,
+          canGoForward: false,
+          isLoading: false,
+          status: 'live'
+        }
       ]
     }
   }

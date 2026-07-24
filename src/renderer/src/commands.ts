@@ -1,6 +1,7 @@
 import { displayCombo, type CommandId } from '@shared/keymap'
 import { useWorkspace } from './store/workspaceStore'
 import { panelIds, type SplitEdge } from './layout/tree'
+import { TEMPLATES } from './templates'
 
 /** Ask the focused panel's URL bar to take focus (handled in PanelFrame). */
 export function requestFocusUrl(panelId: string): void {
@@ -123,8 +124,23 @@ export function useCommands(): PaletteCommand[] {
     cmd('layout.preset1', 'Layout: 1 Panel', 'Layout'),
     cmd('layout.preset2', 'Layout: 2 Panels', 'Layout'),
     cmd('layout.preset4', 'Layout: 4 Panels', 'Layout'),
-    cmd('workspace.new', 'New Workspace', 'Workspace')
+    cmd('workspace.new', 'New Workspace', 'Workspace'),
+    {
+      id: 'perf.sleepBackground',
+      title: 'Sleep Background Tabs',
+      subtitle: 'Performance',
+      run: () => useWorkspace.getState().sleepBackgroundTabs()
+    }
   ]
+
+  for (const t of TEMPLATES) {
+    list.push({
+      id: `workspace.template:${t.id}`,
+      title: `New Workspace: ${t.name}`,
+      subtitle: 'Template',
+      run: () => useWorkspace.getState().createWorkspace(t)
+    })
+  }
 
   for (const ws of workspaces) {
     if (ws.id !== activeId) {

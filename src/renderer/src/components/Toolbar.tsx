@@ -10,6 +10,18 @@ export function Toolbar(): JSX.Element {
   const deleteWorkspace = useWorkspace((s) => s.deleteWorkspace)
   const applyPreset = useWorkspace((s) => s.applyPreset)
   const panels = useWorkspace((s) => countPanels(s.layout))
+  // Two primitive selectors (numbers) — returning an object here would hand
+  // zustand a fresh reference every render and loop forever.
+  const liveTabs = useWorkspace((s) => {
+    let n = 0
+    for (const p of Object.values(s.panels)) for (const t of p.tabs) if (t.status !== 'sleeping') n++
+    return n
+  })
+  const asleepTabs = useWorkspace((s) => {
+    let n = 0
+    for (const p of Object.values(s.panels)) for (const t of p.tabs) if (t.status === 'sleeping') n++
+    return n
+  })
 
   const active = workspaces.find((w) => w.id === activeId)
   const canDelete = workspaces.length > 1
@@ -94,9 +106,12 @@ export function Toolbar(): JSX.Element {
         ))}
       </div>
 
-      <div className="ml-auto flex items-center gap-2 text-[11px] text-slate-500">
+      <div className="ml-auto flex items-center gap-2.5 text-[11px] text-slate-500">
         <span>
           {panels} panel{panels > 1 ? 's' : ''}
+        </span>
+        <span title="Loaded tabs (others are asleep to save memory)">
+          {liveTabs} live{asleepTabs > 0 && <span className="text-slate-600"> · {asleepTabs} 💤</span>}
         </span>
         <span className="flex items-center gap-1">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80" />

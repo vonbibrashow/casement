@@ -20,6 +20,7 @@ import {
   splitPanel,
   type SplitEdge
 } from '../layout/tree'
+import { buildTemplateBody, type WorkspaceTemplate } from '../templates'
 
 export interface DropTarget {
   panelId: string
@@ -33,6 +34,14 @@ export interface DropTarget {
 const livePanels = new Set<string>()
 const liveTabs = new Map<string, Set<string>>()
 const activeSent = new Map<string, string>()
+
+// Performance manager: idle background tabs are put to sleep (their
+// WebContentsView is destroyed to free memory) and reloaded on activation.
+const lastActive = new Map<string, number>() // tabId → last time it was the active tab
+let perfTimer: ReturnType<typeof setInterval> | null = null
+const SLEEP_AFTER_MS = 5 * 60 * 1000 // sleep a background tab idle this long
+const MAX_LIVE_TABS = 16 // hard cap on simultaneously-loaded tabs (LRU sleeps the rest)
+const PERF_TICK_MS = 30_000
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -70,7 +79,7 @@ interface WorkspaceStore {
 
   // workspace management
   switchWorkspace(id: string): void
-  createWorkspace(): void
+  createWorkspace(template?: WorkspaceTemplate): void
   renameWorkspace(id: string, name: string): void
   deleteWorkspace(id: string): void
 
@@ -93,15 +102,44 @@ interface WorkspaceStore {
   reload(panelId: string, tabId: string): void
   stop(panelId: string, tabId: string): void
 
+  // performance
+  runPerformancePass(): void
+  sleepBackgroundTabs(): void
+
   applyTabUpdate(update: TabUpdate): void
 }
 
 function freshTab(url = DEFAULT_URL): TabState {
-  return { id: newTabId(), url, title: 'New Tab', canGoBack: false, canGoForward: false, isLoading: false }
+  const id = newTabId()
+  lastActive.set(id, Date.now())
+  return { id, url, title: 'New Tab', canGoBack: false, canGoForward: false, isLoading: false, status: 'live' }
 }
 function freshPanel(id: string): PanelState {
   const tab = freshTab()
   return { id, tabs: [tab], activeTabId: tab.id }
+}
+
+/**
+ * Normalize a workspace's tab statuses when it becomes active: the active tab of
+ * each panel is `live`; every other tab starts `sleeping` (not loaded) so a
+ * restored/switched workspace only loads what's on screen. Tabs wake on click.
+ */
+function normalizeStatuses(panels: Record<string, PanelState>): Record<string, PanelState> {
+  const now = Date.now()
+  const out: Record<string, PanelState> = {}
+  for (const [pid, p] of Object.entries(panels)) {
+    out[pid] = {
+      ...p,
+      tabs: p.tabs.map((t) => {
+        if (t.id === p.activeTabId) {
+          lastActive.set(t.id, now)
+          return t.status === 'live' ? t : { ...t, status: 'live' as const }
+        }
+        return t.status === 'sleeping' ? t : { ...t, status: 'sleeping' as const }
+      })
+    }
+  }
+  return out
 }
 function freshWorkspaceBody(): Pick<WorkspaceDoc, 'layout' | 'panels' | 'focusedPanelId'> {
   const id = newPanelId()
@@ -127,8 +165,14 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
         void window.workspace.ensurePanel(panelId)
       }
       const tabSet = liveTabs.get(panelId)!
+      // A sleeping tab has no native view; everything else does.
       for (const tab of ps.tabs) {
-        if (!tabSet.has(tab.id)) {
+        if (tab.status === 'sleeping') {
+          if (tabSet.has(tab.id)) {
+            tabSet.delete(tab.id)
+            void window.workspace.destroyTab(panelId, tab.id)
+          }
+        } else if (!tabSet.has(tab.id)) {
           tabSet.add(tab.id)
           void window.workspace.createTab(panelId, tab.id, tab.url)
         }
@@ -243,13 +287,14 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
           workspaces: appState.workspaces.map(({ id, name, icon }) => ({ id, name, icon })),
           activeWorkspaceId: active.id
         })
-        commit(active.layout, active.panels, active.focusedPanelId)
+        commit(active.layout, normalizeStatuses(active.panels), active.focusedPanelId)
       } else {
         const id = newWorkspaceId()
         set({ workspaces: [{ id, name: 'Workspace', icon: WORKSPACE_ICONS[0] }], activeWorkspaceId: id })
         const body = freshWorkspaceBody()
         commit(body.layout, body.panels, body.focusedPanelId)
       }
+      if (!perfTimer) perfTimer = setInterval(() => get().runPerformancePass(), PERF_TICK_MS)
       set({ ready: true })
     },
 
@@ -260,19 +305,17 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
       const target = inactiveDocs.get(id) ?? freshWorkspaceBody()
       inactiveDocs.delete(id)
       set({ activeWorkspaceId: id })
-      commit(target.layout, target.panels, target.focusedPanelId)
+      commit(target.layout, normalizeStatuses(target.panels), target.focusedPanelId)
     },
 
-    createWorkspace() {
+    createWorkspace(template) {
       stashActive()
       const id = newWorkspaceId()
       const { workspaces } = get()
-      const icon = WORKSPACE_ICONS[workspaces.length % WORKSPACE_ICONS.length]
-      set({
-        workspaces: [...workspaces, { id, name: `Workspace ${workspaces.length + 1}`, icon }],
-        activeWorkspaceId: id
-      })
-      const body = freshWorkspaceBody()
+      const name = template?.name ?? `Workspace ${workspaces.length + 1}`
+      const icon = template?.icon ?? WORKSPACE_ICONS[workspaces.length % WORKSPACE_ICONS.length]
+      set({ workspaces: [...workspaces, { id, name, icon }], activeWorkspaceId: id })
+      const body = template ? buildTemplateBody(template) : freshWorkspaceBody()
       commit(body.layout, body.panels, body.focusedPanelId)
     },
 
@@ -337,8 +380,10 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     addTab(panelId) {
       const panel = get().panels[panelId]
       if (!panel) return
-      const tab = freshTab()
-      updatePanel(panelId, { ...panel, tabs: [...panel.tabs, tab], activeTabId: tab.id })
+      const tab = freshTab() // live
+      // The previously active tab drops to paused (kept warm, may sleep later).
+      const tabs = panel.tabs.map((t) => (t.id === panel.activeTabId && t.status === 'live' ? { ...t, status: 'paused' as const } : t))
+      updatePanel(panelId, { ...panel, tabs: [...tabs, tab], activeTabId: tab.id })
       set({ focusedPanelId: panelId })
     },
 
@@ -352,11 +397,15 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
         else updatePanel(panelId, freshPanel(panelId))
         return
       }
-      const activeTabId =
-        panel.activeTabId === tabId
-          ? remaining[Math.min(panel.tabs.findIndex((t) => t.id === tabId), remaining.length - 1)].id
-          : panel.activeTabId
-      updatePanel(panelId, { ...panel, tabs: remaining, activeTabId })
+      let activeTabId = panel.activeTabId
+      let tabs = remaining
+      if (panel.activeTabId === tabId) {
+        activeTabId = remaining[Math.min(panel.tabs.findIndex((t) => t.id === tabId), remaining.length - 1)].id
+        lastActive.set(activeTabId, Date.now())
+        // The newly-surfaced tab must be loaded.
+        tabs = remaining.map((t) => (t.id === activeTabId && t.status === 'sleeping' ? { ...t, status: 'live' as const } : t))
+      }
+      updatePanel(panelId, { ...panel, tabs, activeTabId })
     },
 
     activateTab(panelId, tabId) {
@@ -365,7 +414,16 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
         set({ focusedPanelId: panelId })
         return
       }
-      updatePanel(panelId, { ...panel, activeTabId: tabId })
+      const now = Date.now()
+      lastActive.set(tabId, now)
+      if (panel.activeTabId) lastActive.set(panel.activeTabId, now)
+      // New active tab wakes/loads (live); previous active drops to paused.
+      const tabs = panel.tabs.map((t) => {
+        if (t.id === tabId) return t.status === 'live' ? t : { ...t, status: 'live' as const }
+        if (t.id === panel.activeTabId) return t.status === 'paused' ? t : { ...t, status: 'paused' as const }
+        return t
+      })
+      updatePanel(panelId, { ...panel, tabs, activeTabId: tabId })
       set({ focusedPanelId: panelId })
     },
 
@@ -378,6 +436,68 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     forward: (panelId, tabId) => void window.workspace.forward(panelId, tabId),
     reload: (panelId, tabId) => void window.workspace.reload(panelId, tabId),
     stop: (panelId, tabId) => void window.workspace.stop(panelId, tabId),
+
+    runPerformancePass() {
+      const { panels } = get()
+      const now = Date.now()
+      let changed = false
+
+      // 1. Time-based: paused background tabs idle past the threshold go to sleep.
+      const next: Record<string, PanelState> = {}
+      for (const [pid, p] of Object.entries(panels)) {
+        next[pid] = {
+          ...p,
+          tabs: p.tabs.map((t) => {
+            if (t.id !== p.activeTabId && t.status === 'paused' && now - (lastActive.get(t.id) ?? 0) > SLEEP_AFTER_MS) {
+              changed = true
+              return { ...t, status: 'sleeping' as const }
+            }
+            return t
+          })
+        }
+      }
+
+      // 2. Budget: if too many tabs are still loaded, sleep the least-recently-used
+      //    background ones until we're back under the cap.
+      const loaded: Array<{ pid: string; tid: string; la: number }> = []
+      for (const [pid, p] of Object.entries(next)) {
+        for (const t of p.tabs) {
+          if (t.status !== 'sleeping' && t.id !== p.activeTabId) loaded.push({ pid, tid: t.id, la: lastActive.get(t.id) ?? 0 })
+        }
+      }
+      const activeCount = Object.keys(next).length // one live (active) tab per panel
+      let over = activeCount + loaded.length - MAX_LIVE_TABS
+      if (over > 0) {
+        for (const e of loaded.sort((a, b) => a.la - b.la)) {
+          if (over <= 0) break
+          const p = next[e.pid]
+          next[e.pid] = { ...p, tabs: p.tabs.map((t) => (t.id === e.tid ? { ...t, status: 'sleeping' as const } : t)) }
+          changed = true
+          over--
+        }
+      }
+
+      if (changed) commit(get().layout, next, get().focusedPanelId)
+    },
+
+    sleepBackgroundTabs() {
+      const { panels } = get()
+      let changed = false
+      const next: Record<string, PanelState> = {}
+      for (const [pid, p] of Object.entries(panels)) {
+        next[pid] = {
+          ...p,
+          tabs: p.tabs.map((t) => {
+            if (t.id !== p.activeTabId && t.status !== 'sleeping') {
+              changed = true
+              return { ...t, status: 'sleeping' as const }
+            }
+            return t
+          })
+        }
+      }
+      if (changed) commit(get().layout, next, get().focusedPanelId)
+    },
 
     applyTabUpdate(update) {
       set((s) => ({

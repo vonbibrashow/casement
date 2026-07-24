@@ -22,14 +22,22 @@ export function TabStrip({ panelId }: { panelId: string }): JSX.Element {
               onAuxClick={(e: MouseEvent) => {
                 if (e.button === 1) closeTab(panelId, tab.id) // middle-click closes
               }}
-              title={tab.title || tab.url}
+              title={`${tab.title || tab.url}${tab.status === 'sleeping' ? ' — sleeping' : ''}`}
               className={`group flex min-w-[92px] max-w-[180px] cursor-default items-center gap-1.5 rounded-md px-2 text-xs ${
                 active
                   ? 'bg-surface text-slate-100 shadow-sm'
-                  : 'text-slate-400 hover:bg-surface/60 hover:text-slate-200'
+                  : tab.status === 'sleeping'
+                    ? 'text-slate-500 opacity-60 hover:bg-surface/60 hover:opacity-100'
+                    : 'text-slate-400 hover:bg-surface/60 hover:text-slate-200'
               }`}
             >
-              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${tab.isLoading ? 'bg-accent animate-pulse' : 'bg-slate-600'}`} />
+              {tab.status === 'sleeping' ? (
+                <span className="shrink-0 text-[10px] leading-none" aria-label="sleeping">
+                  💤
+                </span>
+              ) : (
+                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${tab.isLoading ? 'bg-accent animate-pulse' : 'bg-slate-500'}`} />
+              )}
               <span className="min-w-0 flex-1 truncate">{tab.title || 'New Tab'}</span>
               <button
                 onPointerDown={(e) => {

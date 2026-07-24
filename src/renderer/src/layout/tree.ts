@@ -101,6 +101,22 @@ export function resizeAt(node: LayoutNode, path: number[], sizes: [number, numbe
 }
 
 /**
+ * Build a roughly-balanced layout over N panel ids, alternating split direction
+ * at each level so the result reads as a grid. Used by workspace templates.
+ */
+export function buildBalanced(ids: string[], direction: SplitDirection = 'row'): LayoutNode {
+  if (ids.length <= 1) return { type: 'panel', id: ids[0] }
+  const mid = Math.ceil(ids.length / 2)
+  const next: SplitDirection = direction === 'row' ? 'column' : 'row'
+  return {
+    type: 'split',
+    direction,
+    children: [buildBalanced(ids.slice(0, mid), next), buildBalanced(ids.slice(mid), next)],
+    sizes: [0.5, 0.5]
+  }
+}
+
+/**
  * Build a balanced preset layout for `count` panels (1, 2, or 4), reusing the
  * provided panel ids in order. Missing ids must be created by the caller.
  */

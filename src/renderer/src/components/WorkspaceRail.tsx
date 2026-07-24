@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react'
 import { useWorkspace } from '../store/workspaceStore'
+import { panelIds } from '../layout/tree'
+import { TEMPLATES } from '../templates'
 
 /** Far-left activity rail — one icon per workspace, VS Code / Obsidian style. */
 export function WorkspaceRail(): JSX.Element {
@@ -6,6 +9,16 @@ export function WorkspaceRail(): JSX.Element {
   const activeId = useWorkspace((s) => s.activeWorkspaceId)
   const switchWorkspace = useWorkspace((s) => s.switchWorkspace)
   const createWorkspace = useWorkspace((s) => s.createWorkspace)
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  // The menu overlaps the panel area, where native views render above the DOM —
+  // hide them while it's open so the menu is visible.
+  useEffect(() => {
+    if (!menuOpen) return
+    const ids = panelIds(useWorkspace.getState().layout)
+    ids.forEach((id) => void window.workspace.setPanelVisible(id, false))
+    return () => panelIds(useWorkspace.getState().layout).forEach((id) => void window.workspace.setPanelVisible(id, true))
+  }, [menuOpen])
 
   return (
     <nav className="flex w-14 shrink-0 flex-col items-center gap-2 border-r border-surface-border bg-surface-sunken py-3">
@@ -26,15 +39,60 @@ export function WorkspaceRail(): JSX.Element {
         )
       })}
 
-      <button
-        onClick={createWorkspace}
-        title="New workspace"
-        className="mt-1 flex h-10 w-10 items-center justify-center rounded-xl border border-dashed border-surface-border text-slate-500 hover:border-accent/70 hover:text-white"
-      >
-        <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.7}>
-          <path d="M10 4v12M4 10h12" strokeLinecap="round" />
-        </svg>
-      </button>
+      <div className="relative">
+        <button
+          onClick={() => setMenuOpen((o) => !o)}
+          title="New workspace"
+          className={`mt-1 flex h-10 w-10 items-center justify-center rounded-xl border border-dashed text-slate-500 hover:border-accent/70 hover:text-white ${
+            menuOpen ? 'border-accent/70 text-white' : 'border-surface-border'
+          }`}
+        >
+          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.7}>
+            <path d="M10 4v12M4 10h12" strokeLinecap="round" />
+          </svg>
+        </button>
+
+        {menuOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+            <div className="absolute bottom-0 left-12 z-50 w-52 overflow-hidden rounded-lg border border-surface-border bg-surface p-1 shadow-2xl">
+              <MenuItem
+                onClick={() => {
+                  createWorkspace()
+                  setMenuOpen(false)
+                }}
+                icon="＋"
+                label="Blank workspace"
+              />
+              <div className="my-1 h-px bg-surface-border" />
+              <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-slate-500">Templates</div>
+              {TEMPLATES.map((t) => (
+                <MenuItem
+                  key={t.id}
+                  onClick={() => {
+                    createWorkspace(t)
+                    setMenuOpen(false)
+                  }}
+                  icon={t.icon}
+                  label={t.name}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     </nav>
+  )
+}
+
+function MenuItem({ onClick, icon, label }: { onClick: () => void; icon: string; label: string }): JSX.Element {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-xs text-slate-300 hover:bg-surface-raised hover:text-white"
+    >
+      <span className="w-4 text-center text-sm leading-none">{icon}</span>
+      <span className="truncate">{label}</span>
+    </button>
   )
 }

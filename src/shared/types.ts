@@ -24,7 +24,16 @@ export interface SplitNode {
 
 export type LayoutNode = PanelNode | SplitNode
 
-/** A single tab: one Chromium WebContentsView. */
+/**
+ * Performance state of a tab (realizes the panel Live/Paused/Sleeping modes at
+ * tab granularity):
+ * - `live`     — the active tab of its panel: rendering, JS running.
+ * - `paused`   — a background tab kept warm; hidden, so Chromium throttles it.
+ * - `sleeping` — unloaded from memory (no WebContentsView); reloads on activate.
+ */
+export type TabStatus = 'live' | 'paused' | 'sleeping'
+
+/** A single tab: one Chromium WebContentsView (unless sleeping). */
 export interface TabState {
   id: string
   url: string
@@ -32,6 +41,7 @@ export interface TabState {
   canGoBack: boolean
   canGoForward: boolean
   isLoading: boolean
+  status: TabStatus
 }
 
 /** A panel: an ordered set of tabs with one active. */

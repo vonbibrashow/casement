@@ -27,6 +27,14 @@ Feels like VS Code / Obsidian / Figma, not like Chrome.
 - ✅ Command palette (Ctrl+K)
 - ✅ Drag-and-drop layout editing — grab a panel's grip and drop it on another panel's edge to re-dock; the moved panel keeps its tabs/session
 
+**Phase 3 — in progress**
+
+- ✅ Sleeping panels / performance manager — every tab is Live / Paused / Sleeping. Idle background tabs auto-sleep (their `WebContentsView` is destroyed to free memory) and reload instantly on click; a live-tab budget caps memory; on restore only on-screen tabs load. Toolbar shows the live/asleep count.
+- ✅ Workspace templates — Developer / Research / Trading / Personal, from the rail `+` menu or the command palette
+- ⬜ Multi-monitor support
+- ⬜ Plugin API
+- ⬜ Cloud sync
+
 Persistence is versioned (v1 → v2 → v3) with automatic migration on load.
 
 ### Keyboard
