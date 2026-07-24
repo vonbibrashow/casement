@@ -1,6 +1,13 @@
 import { session, type BrowserWindow } from 'electron'
 import { Tab } from './Tab'
 import type { PanelBounds, TabUpdate } from '@shared/types'
+import type { CommandId } from '@shared/keymap'
+
+export interface PanelCallbacks {
+  update(u: TabUpdate): void
+  shortcut(command: CommandId, panelId: string): void
+  focus(panelId: string): void
+}
 
 /**
  * A panel: a container of tabs. Only the active tab's `WebContentsView` is
@@ -14,7 +21,7 @@ export class Panel {
   private bounds: PanelBounds = { x: 0, y: 0, width: 0, height: 0 }
   private visible = true
 
-  constructor(id: string, private window: BrowserWindow, private onUpdate: (u: TabUpdate) => void) {
+  constructor(id: string, private window: BrowserWindow, private cb: PanelCallbacks) {
     this.id = id
   }
 
@@ -24,7 +31,11 @@ export class Panel {
 
   createTab(tabId: string, url: string): void {
     if (this.tabs.has(tabId)) return
-    const tab = new Tab(this.id, tabId, this.onUpdate)
+    const tab = new Tab(this.id, tabId, {
+      update: (u) => this.cb.update(u),
+      shortcut: (command) => this.cb.shortcut(command, this.id),
+      focus: () => this.cb.focus(this.id)
+    })
     this.window.contentView.addChildView(tab.view)
     tab.setBounds(this.bounds)
     this.tabs.set(tabId, tab)

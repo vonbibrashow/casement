@@ -29,6 +29,18 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
     if (document.activeElement !== inputRef.current) setDraft(activeTab?.url ?? '')
   }, [activeTab?.id, activeTab?.url])
 
+  // Respond to the "Focus Address Bar" command (Ctrl+L / palette).
+  useEffect(() => {
+    const onFocusUrl = (e: Event): void => {
+      if ((e as CustomEvent<string>).detail === id) {
+        inputRef.current?.focus()
+        inputRef.current?.select()
+      }
+    }
+    window.addEventListener('mb:focus-url', onFocusUrl)
+    return () => window.removeEventListener('mb:focus-url', onFocusUrl)
+  }, [id])
+
   // Report this panel's viewport rectangle to main so the active tab's native
   // WebContentsView is positioned exactly over it.
   useLayoutEffect(() => {

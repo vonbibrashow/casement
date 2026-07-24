@@ -3,6 +3,7 @@
 // and renderer can never drift out of sync.
 
 import type { AppState, PanelBounds, TabUpdate } from './types'
+import type { CommandId } from './keymap'
 
 export const IPC = {
   // renderer → main (invoke)
@@ -11,6 +12,7 @@ export const IPC = {
   panelSetBounds: 'panel:set-bounds',
   panelSetVisible: 'panel:set-visible',
   panelFocus: 'panel:focus',
+  chromeFocus: 'chrome:focus',
   tabCreate: 'tab:create',
   tabDestroy: 'tab:destroy',
   tabActivate: 'tab:activate',
@@ -22,7 +24,9 @@ export const IPC = {
   appLoad: 'app:load',
   appSave: 'app:save',
   // main → renderer (send)
-  tabUpdate: 'tab:update'
+  tabUpdate: 'tab:update',
+  shortcut: 'shortcut',
+  panelFocused: 'panel:focused'
 } as const
 
 /** The typed bridge surface available in the renderer as `window.workspace`. */
@@ -32,6 +36,8 @@ export interface WorkspaceApi {
   setPanelBounds(panelId: string, bounds: PanelBounds): Promise<void>
   setPanelVisible(panelId: string, visible: boolean): Promise<void>
   focusPanel(panelId: string): Promise<void>
+  /** Move keyboard focus back to the chrome (e.g. when opening the palette). */
+  focusChrome(): Promise<void>
   createTab(panelId: string, tabId: string, url: string): Promise<void>
   destroyTab(panelId: string, tabId: string): Promise<void>
   activateTab(panelId: string, tabId: string): Promise<void>
@@ -43,6 +49,10 @@ export interface WorkspaceApi {
   loadApp(): Promise<AppState | null>
   saveApp(state: AppState): Promise<void>
   onTabUpdate(cb: (update: TabUpdate) => void): () => void
+  /** A shortcut fired inside a panel's web content (page had focus). */
+  onShortcut(cb: (command: CommandId, panelId: string) => void): () => void
+  /** A panel's web content gained focus (e.g. user clicked into a page). */
+  onPanelFocused(cb: (panelId: string) => void): () => void
 }
 
 declare global {

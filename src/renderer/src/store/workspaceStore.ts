@@ -44,6 +44,14 @@ interface WorkspaceStore {
   panels: Record<string, PanelState>
   focusedPanelId: string | null
 
+  // Command palette overlay.
+  paletteOpen: boolean
+  openPalette(): void
+  closePalette(): void
+
+  /** Set focus without re-focusing native content (used for focus echoes). */
+  setFocusedPanel(id: string): void
+
   init(): Promise<void>
 
   // workspace management
@@ -172,6 +180,16 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     layout: { type: 'panel', id: 'bootstrap' },
     panels: {},
     focusedPanelId: null,
+    paletteOpen: false,
+
+    openPalette: () => set({ paletteOpen: true }),
+    closePalette: () => set({ paletteOpen: false }),
+    setFocusedPanel: (id) => {
+      if (get().focusedPanelId !== id) {
+        set({ focusedPanelId: id })
+        scheduleSave()
+      }
+    },
 
     async init() {
       const appState = await window.workspace.loadApp()

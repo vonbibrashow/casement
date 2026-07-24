@@ -3,6 +3,7 @@ import { Panel } from './Panel'
 import { loadApp, saveApp } from './persistence'
 import { IPC } from '@shared/ipc'
 import type { AppState, PanelBounds, TabUpdate } from '@shared/types'
+import type { CommandId } from '@shared/keymap'
 
 /**
  * Owns every native panel/tab for a window and brokers all IPC between the React
@@ -17,8 +18,8 @@ export class WorkspaceManager {
     window.on('closed', () => this.disposeAll())
   }
 
-  private send(update: TabUpdate): void {
-    if (!this.window.isDestroyed()) this.window.webContents.send(IPC.tabUpdate, update)
+  private emit(channel: string, ...args: unknown[]): void {
+    if (!this.window.isDestroyed()) this.window.webContents.send(channel, ...args)
   }
 
   private get(panelId: string): Panel | undefined {
@@ -28,7 +29,11 @@ export class WorkspaceManager {
   private ensurePanel(panelId: string): Panel {
     let panel = this.panels.get(panelId)
     if (!panel) {
-      panel = new Panel(panelId, this.window, (u) => this.send(u))
+      panel = new Panel(panelId, this.window, {
+        update: (u: TabUpdate) => this.emit(IPC.tabUpdate, u),
+        shortcut: (command: CommandId, id: string) => this.emit(IPC.shortcut, command, id),
+        focus: (id: string) => this.emit(IPC.panelFocused, id)
+      })
       this.panels.set(panelId, panel)
     }
     return panel
@@ -51,6 +56,9 @@ export class WorkspaceManager {
     ipcMain.handle(IPC.panelSetBounds, (_e, panelId: string, bounds: PanelBounds) => this.get(panelId)?.setBounds(bounds))
     ipcMain.handle(IPC.panelSetVisible, (_e, panelId: string, visible: boolean) => this.get(panelId)?.setVisible(visible))
     ipcMain.handle(IPC.panelFocus, (_e, panelId: string) => this.get(panelId)?.focus())
+    ipcMain.handle(IPC.chromeFocus, () => {
+      if (!this.window.isDestroyed()) this.window.webContents.focus()
+    })
 
     ipcMain.handle(IPC.tabCreate, (_e, panelId: string, tabId: string, url: string) =>
       this.ensurePanel(panelId).createTab(tabId, normalizeUrl(url))

@@ -1,6 +1,10 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, Menu, shell } from 'electron'
 import { join } from 'node:path'
 import { WorkspaceManager } from './workspace/WorkspaceManager'
+
+// No native menu: our own keymap owns Ctrl+R / Ctrl+W etc. so they act on the
+// active tab/panel instead of reloading or closing the chrome window.
+Menu.setApplicationMenu(null)
 
 function createWindow(): void {
   const win = new BrowserWindow({

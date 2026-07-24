@@ -23,11 +23,22 @@ Feels like VS Code / Obsidian / Figma, not like Chrome.
 
 - ✅ Tabs inside panels (each tab its own `WebContentsView`, sharing the panel session)
 - ✅ Workspace manager — multiple named workspaces, left-rail switcher, create / rename / delete, per-workspace saved sessions
+- ✅ Keyboard shortcuts (resolved in main via `before-input-event`, so they fire even while a web page has focus)
+- ✅ Command palette (Ctrl+K)
 - ⬜ Drag-and-drop layout editing
-- ⬜ Keyboard shortcuts
-- ⬜ Command palette
 
 Persistence is versioned (v1 → v2 → v3) with automatic migration on load.
+
+### Keyboard
+
+| Shortcut | Action | | Shortcut | Action |
+|---|---|---|---|---|
+| `Ctrl K` | Command palette | | `Ctrl \` | Split panel right |
+| `Ctrl T` | New tab | | `Ctrl Shift \` | Split panel down |
+| `Ctrl W` | Close tab | | `Ctrl Shift W` | Close panel |
+| `Ctrl Tab` | Next tab | | `Ctrl Shift N` | New workspace |
+| `Ctrl L` | Focus address bar | | `Ctrl Alt 1/2/4` | Layout preset |
+| `Ctrl R` | Reload | | `Alt ←` / `Alt →` | Back / Forward |
 
 Not built yet (Phase 3): sleeping/performance modes, templates, multi-monitor,
 plugins, cloud sync.
