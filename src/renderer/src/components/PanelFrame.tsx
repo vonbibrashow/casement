@@ -38,7 +38,7 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
   const stop = useWorkspace((s) => s.stop)
   const split = useWorkspace((s) => s.split)
   const closePanel = useWorkspace((s) => s.closePanel)
-  const focusPanel = useWorkspace((s) => s.focusPanel)
+  const setFocusedPanel = useWorkspace((s) => s.setFocusedPanel)
   const beginPanelDrag = useWorkspace((s) => s.beginPanelDrag)
   const updatePanelDrag = useWorkspace((s) => s.updatePanelDrag)
   const endPanelDrag = useWorkspace((s) => s.endPanelDrag)
@@ -122,7 +122,7 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
   return (
     <div
       data-panel-id={id}
-      onPointerDownCapture={() => focusPanel(id)}
+      onPointerDownCapture={() => setFocusedPanel(id)}
       className={`flex h-full w-full flex-col overflow-hidden rounded-md border bg-surface ${
         focused ? 'border-accent/60' : 'border-surface-border'
       }`}
