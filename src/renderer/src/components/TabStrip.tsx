@@ -1,18 +1,21 @@
 import type { MouseEvent } from 'react'
 import { useWorkspace } from '../store/workspaceStore'
 
-/** The row of tabs at the top of a panel. */
-export function TabStrip({ panelId }: { panelId: string }): JSX.Element {
+/**
+ * The panel's tabs, rendered inline inside the panel's single chrome row
+ * (alongside the address bar) so each panel only spends one row on chrome.
+ */
+export function TabStrip({ panelId }: { panelId: string }): JSX.Element | null {
   const panel = useWorkspace((s) => s.panels[panelId])
   const activateTab = useWorkspace((s) => s.activateTab)
   const closeTab = useWorkspace((s) => s.closeTab)
   const addTab = useWorkspace((s) => s.addTab)
 
-  if (!panel) return <div className="h-8 border-b border-surface-border bg-surface-raised" />
+  if (!panel) return null
 
   return (
-    <div className="flex h-8 shrink-0 items-stretch gap-1 border-b border-surface-border bg-surface-raised px-1">
-      <div className="flex min-w-0 flex-1 items-stretch gap-1 overflow-x-auto py-1">
+    <div className="flex min-w-0 flex-[3] items-stretch gap-1">
+      <div className="flex min-w-0 flex-1 items-stretch gap-1 overflow-x-auto">
         {panel.tabs.map((tab) => {
           const active = tab.id === panel.activeTabId
           return (
@@ -23,12 +26,12 @@ export function TabStrip({ panelId }: { panelId: string }): JSX.Element {
                 if (e.button === 1) closeTab(panelId, tab.id) // middle-click closes
               }}
               title={`${tab.title || tab.url}${tab.status === 'sleeping' ? ' — sleeping' : ''}`}
-              className={`group flex min-w-[92px] max-w-[180px] cursor-default items-center gap-1.5 rounded-md px-2 text-xs ${
+              className={`group flex h-7 min-w-[76px] max-w-[150px] shrink-0 cursor-default items-center gap-1.5 self-center rounded-md px-2 text-xs ${
                 active
-                  ? 'bg-surface text-slate-100 shadow-sm'
+                  ? 'bg-surface-raised text-slate-100 shadow-sm ring-1 ring-surface-border'
                   : tab.status === 'sleeping'
-                    ? 'text-slate-500 opacity-60 hover:bg-surface/60 hover:opacity-100'
-                    : 'text-slate-400 hover:bg-surface/60 hover:text-slate-200'
+                    ? 'text-slate-500 opacity-60 hover:bg-surface-raised/60 hover:opacity-100'
+                    : 'text-slate-400 hover:bg-surface-raised/60 hover:text-slate-200'
               }`}
             >
               {tab.status === 'sleeping' ? (
@@ -58,7 +61,7 @@ export function TabStrip({ panelId }: { panelId: string }): JSX.Element {
       <button
         onClick={() => addTab(panelId)}
         title="New tab"
-        className="my-1 flex w-7 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-surface hover:text-white"
+        className="flex h-6 w-6 shrink-0 items-center justify-center self-center rounded text-slate-400 hover:bg-surface-raised hover:text-white"
       >
         <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.6}>
           <path d="M10 4v12M4 10h12" strokeLinecap="round" />

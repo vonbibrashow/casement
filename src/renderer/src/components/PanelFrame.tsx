@@ -127,8 +127,7 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
         focused ? 'border-accent/60' : 'border-surface-border'
       }`}
     >
-      <TabStrip panelId={id} />
-
+      {/* One chrome row: nav + address bar + tabs + panel controls. */}
       <div className="flex h-9 shrink-0 items-center gap-1 border-b border-surface-border px-1.5">
         {canClose && (
           <button
@@ -163,7 +162,7 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
           )}
         </IconButton>
 
-        <form onSubmit={submit} className="min-w-0 flex-1">
+        <form onSubmit={submit} className="min-w-[110px] flex-[2]">
           <input
             ref={inputRef}
             value={draft}
@@ -175,7 +174,11 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
           />
         </form>
 
-        <div className="flex items-center gap-0.5 pl-0.5">
+        <div className="mx-0.5 h-5 w-px shrink-0 bg-surface-border" />
+
+        <TabStrip panelId={id} />
+
+        <div className="flex shrink-0 items-center gap-0.5 pl-0.5">
           <SplitButton edge="left" onClick={() => split(id, 'left')} />
           <SplitButton edge="right" onClick={() => split(id, 'right')} />
           <SplitButton edge="top" onClick={() => split(id, 'top')} />
