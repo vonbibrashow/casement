@@ -29,6 +29,13 @@ export function clientPage(token: string): string {
   #kb { position:absolute; opacity:0; pointer-events:none; width:1px; height:1px; }
   #ro { position:absolute; inset:0; display:none; align-items:center; justify-content:center;
     background:rgba(15,16,20,.85); color:#94a3b8; font-size:13px; text-align:center; padding:24px; }
+  #gate { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px; background:#0f1014; color:#cbd5e1; text-align:center; padding:32px; }
+  #gate h2 { margin:0; font-size:15px; font-weight:600; color:#e2e8f0; }
+  #gate p { margin:0; font-size:12px; color:#94a3b8; max-width:280px; line-height:1.5; }
+  .spin { width:26px; height:26px; border:2px solid #2e323d; border-top-color:#6d8cff;
+    border-radius:50%; animation:sp 0.9s linear infinite; }
+  @keyframes sp { to { transform:rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -44,6 +51,11 @@ export function clientPage(token: string): string {
   <canvas id="screen"></canvas>
   <div id="hint">Tap to interact · ⌨ for keyboard</div>
   <div id="ro">View-only — the host has disabled control.</div>
+  <div id="gate">
+    <div class="spin" id="gspin"></div>
+    <h2 id="gtitle">Waiting for the host…</h2>
+    <p id="gtext">The host has been asked to let you in. Nothing is shared until they approve.</p>
+  </div>
 </div>
 <input id="kb" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" />
 <script>
@@ -53,23 +65,47 @@ export function clientPage(token: string): string {
   var dot = document.getElementById('dot'), title = document.getElementById('title');
   var hint = document.getElementById('hint'), ro = document.getElementById('ro');
   var kb = document.getElementById('kb');
-  var ws, control = true, imgW = 0, imgH = 0;
+  var gate = document.getElementById('gate'), gtitle = document.getElementById('gtitle');
+  var gtext = document.getElementById('gtext'), gspin = document.getElementById('gspin');
+  var ws, control = true, imgW = 0, imgH = 0, admitted = false, denied = false;
+
+  function showGate(title, text, spinning) {
+    gate.style.display = 'flex';
+    gtitle.textContent = title; gtext.textContent = text;
+    gspin.style.display = spinning ? 'block' : 'none';
+  }
 
   function connect() {
     var proto = location.protocol === 'https:' ? 'wss' : 'ws';
     ws = new WebSocket(proto + '://' + location.host + '/ws?token=' + encodeURIComponent(TOKEN));
     ws.onopen = function () { dot.className = 'on'; };
-    ws.onclose = function () { dot.className = 'off'; title.textContent = 'Disconnected'; setTimeout(connect, 1500); };
+    ws.onclose = function () {
+      dot.className = 'off';
+      if (denied) return; // a denied guest must not silently retry
+      title.textContent = 'Disconnected';
+      setTimeout(connect, 1500);
+    };
     ws.onerror = function () { dot.className = 'off'; };
     ws.onmessage = function (ev) {
       var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
       if (m.type === 'frame') draw(m.data);
-      else if (m.type === 'meta') {
+      else if (m.type === 'pending') {
+        admitted = false;
+        title.textContent = 'Waiting for approval';
+        showGate('Waiting for the host…', 'The host has been asked to let you in. Nothing is shared until they approve.', true);
+      } else if (m.type === 'approved') {
+        admitted = true;
+        gate.style.display = 'none';
+      } else if (m.type === 'denied') {
+        denied = true;
+        showGate('Request declined', 'The host did not admit you to this session.', false);
+      } else if (m.type === 'meta') {
         title.textContent = m.title || m.url || 'Shared panel';
         control = !!m.allowControl;
-        ro.style.display = control ? 'none' : 'flex';
+        ro.style.display = control || !admitted ? 'none' : 'flex';
       } else if (m.type === 'ended') {
-        title.textContent = 'Sharing ended by host';
+        denied = true;
+        showGate('Sharing ended', 'The host stopped sharing this panel.', false);
         ws.close();
       }
     };

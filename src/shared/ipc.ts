@@ -33,6 +33,11 @@ export const IPC = {
   shareSetControl: 'share:set-control',
   shareList: 'share:list',
   shareKick: 'share:kick',
+  shareApprove: 'share:approve',
+  shareDeny: 'share:deny',
+  shareSetApproval: 'share:set-approval',
+  shareTunnelStart: 'share:tunnel-start',
+  shareTunnelStop: 'share:tunnel-stop',
   // main → renderer (send)
   tabUpdate: 'tab:update',
   shortcut: 'shortcut',
@@ -81,6 +86,13 @@ export interface WorkspaceApi {
   setShareControl(panelId: string, allowControl: boolean): Promise<void>
   /** Disconnect one connected guest. */
   kickShareClient(panelId: string, clientId: string): Promise<void>
+  /** Admit a guest waiting in the approval queue. */
+  approveShareGuest(panelId: string, requestId: string): Promise<void>
+  denyShareGuest(panelId: string, requestId: string): Promise<void>
+  setShareApproval(panelId: string, requireApproval: boolean): Promise<void>
+  /** Expose shares to the internet via a tunnel (opt-in). */
+  startShareTunnel(): Promise<void>
+  stopShareTunnel(): Promise<void>
   listShares(): Promise<ShareInfo[]>
   /** Fires whenever a share starts/stops or a guest connects/disconnects. */
   onShareUpdate(cb: (shares: ShareInfo[]) => void): () => void

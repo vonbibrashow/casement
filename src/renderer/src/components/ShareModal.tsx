@@ -3,6 +3,22 @@ import QRCode from 'qrcode'
 import { useWorkspace } from '../store/workspaceStore'
 import { panelIds } from '../layout/tree'
 
+function Toggle({ on, onClick, label, warn }: { on: boolean; onClick: () => void; label: string; warn?: boolean }): JSX.Element {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-300">
+      <button
+        role="switch"
+        aria-checked={on}
+        onClick={onClick}
+        className={`flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition ${on ? 'bg-accent' : 'bg-surface-border'}`}
+      >
+        <span className={`h-4 w-4 rounded-full bg-white transition ${on ? 'translate-x-4' : ''}`} />
+      </button>
+      <span className={warn ? 'text-amber-300/90' : undefined}>{label}</span>
+    </label>
+  )
+}
+
 export function ShareModal(): JSX.Element | null {
   const panelId = useWorkspace((s) => s.sharePanelId)
   return panelId ? <ModalInner panelId={panelId} /> : null
@@ -13,15 +29,25 @@ function ModalInner({ panelId }: { panelId: string }): JSX.Element {
   const stopShare = useWorkspace((s) => s.stopShare)
   const setShareControl = useWorkspace((s) => s.setShareControl)
   const kickClient = useWorkspace((s) => s.kickShareClient)
+  const approveGuest = useWorkspace((s) => s.approveShareGuest)
+  const denyGuest = useWorkspace((s) => s.denyShareGuest)
+  const setShareApproval = useWorkspace((s) => s.setShareApproval)
+  const startTunnel = useWorkspace((s) => s.startShareTunnel)
+  const stopTunnel = useWorkspace((s) => s.stopShareTunnel)
   const share = useWorkspace((s) => s.shares.find((x) => x.panelId === panelId))
   const panelTitle = useWorkspace((s) => {
     const p = s.panels[panelId]
     return p?.tabs.find((t) => t.id === p.activeTabId)?.title ?? 'Panel'
   })
 
-  // Prefer a LAN URL — localhost only works on this machine.
+  // Prefer the public URL when a tunnel is up, else a LAN address —
+  // localhost only ever works on this machine.
   const urls = share?.urls ?? []
-  const primary = useMemo(() => urls.find((u) => !u.includes('localhost')) ?? urls[0] ?? '', [urls])
+  const publicUrl = share?.publicUrl ?? null
+  const primary = useMemo(
+    () => publicUrl ?? urls.find((u) => !u.includes('localhost')) ?? urls[0] ?? '',
+    [publicUrl, urls]
+  )
   const [qr, setQr] = useState('')
   const [copied, setCopied] = useState(false)
 
@@ -100,24 +126,88 @@ function ModalInner({ panelId }: { panelId: string }): JSX.Element {
                   </button>
                 </div>
                 <p className="text-[11px] leading-relaxed text-slate-500">
-                  Scan on a phone, or open the link on another computer. It works for devices on the{' '}
-                  <span className="text-slate-400">same network</span> — outside that you’d need a tunnel or VPN.
+                  {publicUrl ? (
+                    <>
+                      Reachable <span className="text-emerald-300/80">from anywhere</span> while internet access is on.
+                    </>
+                  ) : (
+                    <>
+                      Scan on a phone, or open on another computer on the{' '}
+                      <span className="text-slate-400">same network</span>.
+                    </>
+                  )}
                 </p>
 
-                <label className="mt-1 flex cursor-pointer items-center gap-2 text-xs text-slate-300">
-                  <button
-                    role="switch"
-                    aria-checked={share.allowControl}
-                    onClick={() => void setShareControl(panelId, !share.allowControl)}
-                    className={`flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition ${
-                      share.allowControl ? 'bg-accent' : 'bg-surface-border'
-                    }`}
-                  >
-                    <span className={`h-4 w-4 rounded-full bg-white transition ${share.allowControl ? 'translate-x-4' : ''}`} />
-                  </button>
-                  {share.allowControl ? 'Guests can control this panel' : 'View only'}
-                </label>
+                <Toggle
+                  on={share.allowControl}
+                  onClick={() => void setShareControl(panelId, !share.allowControl)}
+                  label={share.allowControl ? 'Guests can control this panel' : 'View only'}
+                />
+                <Toggle
+                  on={share.requireApproval}
+                  onClick={() => void setShareApproval(panelId, !share.requireApproval)}
+                  label={share.requireApproval ? 'Ask me before anyone joins' : 'Anyone with the link joins instantly'}
+                  warn={!share.requireApproval}
+                />
               </div>
+            </div>
+
+            {/* Waiting room — guests are invisible to each other until admitted. */}
+            {share.pending.length > 0 && (
+              <div className="border-t border-surface-border bg-accent/10 px-4 py-3">
+                <div className="mb-2 text-[10px] uppercase tracking-wide text-accent">
+                  Wants to join ({share.pending.length})
+                </div>
+                <div className="space-y-1.5">
+                  {share.pending.map((p) => (
+                    <div key={p.id} className="flex items-center gap-2 text-xs">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+                      <span className="min-w-0 flex-1 truncate font-mono text-slate-300">{p.address}</span>
+                      <button
+                        onClick={() => void approveGuest(panelId, p.id)}
+                        className="rounded bg-emerald-500/20 px-2 py-0.5 text-[11px] font-medium text-emerald-300 hover:bg-emerald-500/30"
+                      >
+                        Admit
+                      </button>
+                      <button
+                        onClick={() => void denyGuest(panelId, p.id)}
+                        className="rounded px-2 py-0.5 text-[11px] text-slate-500 hover:bg-red-500/20 hover:text-red-300"
+                      >
+                        Deny
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Optional public exposure. */}
+            <div className="flex items-center gap-3 border-t border-surface-border px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="text-xs text-slate-200">Internet access</div>
+                <div className="text-[11px] text-slate-500">
+                  {share.tunnelState === 'on'
+                    ? 'Public link active via Cloudflare tunnel.'
+                    : share.tunnelState === 'starting'
+                      ? 'Starting tunnel…'
+                      : share.tunnelState === 'unavailable'
+                        ? 'Needs cloudflared installed on this machine.'
+                        : share.tunnelState === 'error'
+                          ? share.tunnelMessage ?? 'Tunnel failed to start.'
+                          : 'Off — link works on your local network only.'}
+                </div>
+              </div>
+              <button
+                onClick={() => void (share.tunnelState === 'on' ? stopTunnel() : startTunnel())}
+                disabled={share.tunnelState === 'starting' || share.tunnelState === 'unavailable'}
+                className={`shrink-0 rounded-md px-2.5 py-1.5 text-xs font-medium disabled:opacity-40 ${
+                  share.tunnelState === 'on'
+                    ? 'bg-red-500/15 text-red-300 hover:bg-red-500/25'
+                    : 'bg-surface-raised text-slate-200 hover:bg-surface-border'
+                }`}
+              >
+                {share.tunnelState === 'on' ? 'Turn off' : share.tunnelState === 'starting' ? 'Starting…' : 'Turn on'}
+              </button>
             </div>
 
             <div className="border-t border-surface-border px-4 py-3">
@@ -145,8 +235,14 @@ function ModalInner({ panelId }: { panelId: string }): JSX.Element {
             </div>
 
             <div className="border-t border-surface-border bg-amber-500/5 px-4 py-2.5 text-[11px] leading-relaxed text-amber-200/70">
-              Anyone with this link controls this panel — including any accounts already signed in inside it. Only send
-              it to someone you trust, and stop sharing when you’re done.
+              Whoever you admit controls this panel — including any accounts already signed in inside it. Only admit
+              people you trust, and stop sharing when you’re done.
+              {publicUrl && !share.requireApproval && (
+                <span className="mt-1 block font-medium text-amber-200">
+                  This link is public and joins are automatic — anyone who gets it is in. Consider turning approval
+                  back on.
+                </span>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 border-t border-surface-border px-4 py-3">

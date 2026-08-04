@@ -6,8 +6,12 @@ import type { WebContents } from 'electron'
 import type { ShareInfo } from '@shared/types'
 import { ShareSession } from './ShareSession'
 import { clientPage } from './clientPage'
+import { Tunnel } from './tunnel'
 
+// Preferred port, with a small fallback range so a second instance (or any
+// unrelated process squatting the port) doesn't make sharing fail outright.
 const PORT = 7391
+const PORT_ATTEMPTS = 8
 
 /** Constant-time token comparison so tokens can't be probed byte-by-byte. */
 function tokenMatches(a: string, b: string): boolean {
@@ -37,6 +41,9 @@ export class ShareServer {
   private wss: WebSocketServer | null = null
   private sessions = new Map<string, ShareSession>()
   private listeners = new Set<() => void>()
+  private tunnel = new Tunnel(() => this.emit())
+  /** Port actually bound (may differ from PORT if it was taken). */
+  private port = PORT
 
   /** Resolves a panel's currently active WebContents (owned by WorkspaceManager). */
   constructor(private resolveTarget: (panelId: string) => WebContents | null) {}
@@ -81,23 +88,38 @@ export class ShareServer {
       }
       wss.handleUpgrade(req, socket, head, (ws) => {
         session.retarget(this.resolveTarget(session.panelId))
-        session.addGuest(ws, req.socket.remoteAddress ?? 'unknown')
+        session.addConnection(ws, req.socket.remoteAddress ?? 'unknown')
       })
     })
 
-    await new Promise<void>((resolve, reject) => {
-      server.once('error', reject)
-      server.listen(PORT, '0.0.0.0', () => {
-        server.off('error', reject)
-        resolve()
+    // Walk the fallback range until one binds.
+    let bound = -1
+    for (let i = 0; i < PORT_ATTEMPTS; i++) {
+      const candidate = PORT + i
+      const okPort = await new Promise<boolean>((resolve) => {
+        const onError = (): void => resolve(false)
+        server.once('error', onError)
+        server.listen(candidate, '0.0.0.0', () => {
+          server.off('error', onError)
+          resolve(true)
+        })
       })
-    })
+      if (okPort) {
+        bound = candidate
+        break
+      }
+    }
+    if (bound === -1) throw new Error('No free port for sharing')
+
+    this.port = bound
     this.server = server
     this.wss = wss
   }
 
   private maybeStopServer(): void {
     if (this.sessions.size > 0) return
+    // Nothing is shared any more — tear the public tunnel down with the server.
+    this.tunnel.stop()
     this.wss?.close()
     this.server?.close()
     this.wss = null
@@ -105,13 +127,21 @@ export class ShareServer {
   }
 
   private info(s: ShareSession): ShareInfo {
-    const urls = [`http://localhost:${PORT}/s/${s.token}`, ...lanAddresses().map((a) => `http://${a}:${PORT}/s/${s.token}`)]
+    const urls = [
+      `http://localhost:${this.port}/s/${s.token}`,
+      ...lanAddresses().map((a) => `http://${a}:${this.port}/s/${s.token}`)
+    ]
     return {
       panelId: s.panelId,
       token: s.token,
       urls,
+      publicUrl: this.tunnel.url ? `${this.tunnel.url}/s/${s.token}` : null,
+      tunnelState: this.tunnel.state,
+      tunnelMessage: this.tunnel.message,
       allowControl: s.allowControl,
+      requireApproval: s.requireApproval,
       clients: s.clients,
+      pending: s.pending,
       startedAt: s.startedAt
     }
   }
@@ -153,6 +183,29 @@ export class ShareServer {
     this.sessions.get(panelId)?.removeGuest(clientId)
   }
 
+  approve(panelId: string, requestId: string): void {
+    this.sessions.get(panelId)?.approve(requestId)
+  }
+
+  deny(panelId: string, requestId: string): void {
+    this.sessions.get(panelId)?.deny(requestId)
+  }
+
+  setRequireApproval(panelId: string, require: boolean): void {
+    this.sessions.get(panelId)?.setRequireApproval(require)
+    this.emit()
+  }
+
+  /** Expose shares to the internet through a cloudflared quick tunnel. */
+  async startTunnel(): Promise<void> {
+    if (!this.server) return // nothing shared yet, so nothing to expose
+    await this.tunnel.start(this.port)
+  }
+
+  stopTunnel(): void {
+    this.tunnel.stop()
+  }
+
   /** Re-point a live share after the panel switches tabs. */
   retarget(panelId: string): void {
     this.sessions.get(panelId)?.retarget(this.resolveTarget(panelId))
@@ -168,6 +221,7 @@ export class ShareServer {
   }
 
   disposeAll(): void {
+    this.tunnel.stop()
     for (const s of this.sessions.values()) s.dispose()
     this.sessions.clear()
     this.maybeStopServer()

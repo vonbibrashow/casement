@@ -56,15 +56,25 @@ port is open otherwise.
 
 Safety model:
 
+- **Nobody joins without you letting them in.** A valid link only puts a guest in
+  a waiting room — no frames are sent and no input accepted until you admit them.
+  So a leaked or forwarded link is not, by itself, access. (Can be switched off
+  per share for instant joins.)
 - Links carry a 128-bit token and are compared in constant time; a wrong or
   missing token gets a 404 and the WebSocket upgrade is refused.
 - One click stops the share; you can disconnect individual guests, or flip the
   whole session to view-only, at any time.
 - Closing the panel (or the app) ends the share automatically.
-- **Bound to your local network.** Reaching it from outside needs a VPN or
-  tunnel — deliberately not exposed to the internet by default.
-- A guest controlling the panel can use **whatever accounts are already signed in
-  inside it**. Share only with people you trust, and stop when you're done.
+- **LAN-only by default.** Internet access is a separate opt-in (below).
+- A guest you admit can use **whatever accounts are already signed in inside that
+  panel**. Admit only people you trust, and stop when you're done.
+
+**Internet access (optional).** Sharing works on your local network with no third
+party involved. To reach someone elsewhere, toggle *Internet access* in the share
+dialog — it runs a [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
+quick tunnel and swaps the link for a public one. Nothing is installed for you: if
+`cloudflared` isn't on your machine the toggle says so and stays off. The tunnel
+dies with the last share. Keep the approval gate on when using a public link.
 
 ### Plugins
 

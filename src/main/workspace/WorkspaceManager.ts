@@ -101,6 +101,13 @@ export class WorkspaceManager {
     ipcMain.handle(IPC.shareStop, (_e, panelId: string) => this.shares.stop(panelId))
     ipcMain.handle(IPC.shareSetControl, (_e, panelId: string, allow: boolean) => this.shares.setControl(panelId, allow))
     ipcMain.handle(IPC.shareKick, (_e, panelId: string, clientId: string) => this.shares.kick(panelId, clientId))
+    ipcMain.handle(IPC.shareApprove, (_e, panelId: string, requestId: string) => this.shares.approve(panelId, requestId))
+    ipcMain.handle(IPC.shareDeny, (_e, panelId: string, requestId: string) => this.shares.deny(panelId, requestId))
+    ipcMain.handle(IPC.shareSetApproval, (_e, panelId: string, require: boolean) =>
+      this.shares.setRequireApproval(panelId, require)
+    )
+    ipcMain.handle(IPC.shareTunnelStart, () => this.shares.startTunnel())
+    ipcMain.handle(IPC.shareTunnelStop, () => this.shares.stopTunnel())
     ipcMain.handle(IPC.shareList, () => this.shares.list())
   }
 }

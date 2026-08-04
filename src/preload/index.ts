@@ -45,6 +45,11 @@ const api: WorkspaceApi = {
   stopShare: (panelId) => ipcRenderer.invoke(IPC.shareStop, panelId),
   setShareControl: (panelId, allowControl) => ipcRenderer.invoke(IPC.shareSetControl, panelId, allowControl),
   kickShareClient: (panelId, clientId) => ipcRenderer.invoke(IPC.shareKick, panelId, clientId),
+  approveShareGuest: (panelId, requestId) => ipcRenderer.invoke(IPC.shareApprove, panelId, requestId),
+  denyShareGuest: (panelId, requestId) => ipcRenderer.invoke(IPC.shareDeny, panelId, requestId),
+  setShareApproval: (panelId, requireApproval) => ipcRenderer.invoke(IPC.shareSetApproval, panelId, requireApproval),
+  startShareTunnel: () => ipcRenderer.invoke(IPC.shareTunnelStart),
+  stopShareTunnel: () => ipcRenderer.invoke(IPC.shareTunnelStop),
   listShares: () => ipcRenderer.invoke(IPC.shareList) as Promise<ShareInfo[]>,
   onShareUpdate: (cb: (shares: ShareInfo[]) => void) => {
     const listener = (_e: unknown, shares: ShareInfo[]): void => cb(shares)

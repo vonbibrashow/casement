@@ -107,6 +107,16 @@ export interface ShareClient {
   connectedAt: number
 }
 
+/** A guest waiting for the host to let them in. */
+export interface PendingGuest {
+  id: string
+  address: string
+  requestedAt: number
+}
+
+/** Public-internet exposure via a tunnel process. */
+export type TunnelState = 'off' | 'starting' | 'on' | 'unavailable' | 'error'
+
 /** Live state of one shared panel. */
 export interface ShareInfo {
   panelId: string
@@ -114,8 +124,16 @@ export interface ShareInfo {
   token: string
   /** URLs the guest can open — loopback plus any LAN addresses. */
   urls: string[]
+  /** Internet-reachable URL while a tunnel is running. */
+  publicUrl: string | null
+  tunnelState: TunnelState
+  /** Reason shown when the tunnel is unavailable or failed. */
+  tunnelMessage: string | null
   /** False = guest can watch but not click/type. */
   allowControl: boolean
+  /** When true, guests must be admitted by the host before they see anything. */
+  requireApproval: boolean
   clients: ShareClient[]
+  pending: PendingGuest[]
   startedAt: number
 }

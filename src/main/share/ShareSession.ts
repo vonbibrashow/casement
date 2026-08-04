@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import type { WebContents } from 'electron'
 import type { WebSocket } from 'ws'
-import type { ShareClient } from '@shared/types'
+import type { PendingGuest, ShareClient } from '@shared/types'
 
 // A shared panel. Frames go out via the Chrome DevTools Protocol screencast on
 // that panel's own WebContents; guest input comes back in via Input.dispatch*.
@@ -13,6 +13,13 @@ interface Guest {
   socket: WebSocket
   address: string
   connectedAt: number
+}
+
+interface Waiting {
+  id: string
+  socket: WebSocket
+  address: string
+  requestedAt: number
 }
 
 /** Keys that need an explicit Windows virtual key code to behave correctly. */
@@ -41,8 +48,11 @@ export class ShareSession {
   readonly token: string
   readonly startedAt = Date.now()
   allowControl = true
+  /** Default on: a leaked link still can't join without the host admitting it. */
+  requireApproval = true
 
   private guests = new Map<string, Guest>()
+  private waiting = new Map<string, Waiting>()
   private target: WebContents | null = null
   private streaming = false
   /** Viewport size of the last frame — the basis for mapping guest clicks. */
@@ -137,16 +147,78 @@ export class ShareSession {
     this.broadcastMeta()
   }
 
-  addGuest(socket: WebSocket, address: string): string {
+  get pending(): PendingGuest[] {
+    return [...this.waiting.values()].map((w) => ({ id: w.id, address: w.address, requestedAt: w.requestedAt }))
+  }
+
+  /**
+   * A connection arrived with a valid token. Unless approval is disabled it is
+   * parked in the waiting room — no frames are sent and no input is accepted
+   * until the host admits it.
+   */
+  addConnection(socket: WebSocket, address: string): void {
     const id = randomBytes(6).toString('hex')
+    if (!this.requireApproval) {
+      this.admitSocket(id, socket, address)
+      return
+    }
+    this.waiting.set(id, { id, socket, address, requestedAt: Date.now() })
+    socket.on('close', () => {
+      this.waiting.delete(id)
+      this.onChange()
+    })
+    socket.on('error', () => {
+      this.waiting.delete(id)
+      this.onChange()
+    })
+    try {
+      socket.send(JSON.stringify({ type: 'pending' }))
+    } catch {
+      /* socket already gone */
+    }
+    this.onChange()
+  }
+
+  private admitSocket(id: string, socket: WebSocket, address: string): void {
     this.guests.set(id, { id, socket, address, connectedAt: Date.now() })
     socket.on('message', (raw) => this.handleGuestMessage(String(raw)))
     socket.on('close', () => this.removeGuest(id))
     socket.on('error', () => this.removeGuest(id))
+    try {
+      socket.send(JSON.stringify({ type: 'approved' }))
+    } catch {
+      /* socket already gone */
+    }
     if (!this.streaming) this.startStream()
     this.broadcastMeta()
     this.onChange()
-    return id
+  }
+
+  approve(id: string): void {
+    const w = this.waiting.get(id)
+    if (!w) return
+    this.waiting.delete(id)
+    // Drop the provisional handlers; admitSocket installs the real ones.
+    w.socket.removeAllListeners('close')
+    w.socket.removeAllListeners('error')
+    this.admitSocket(w.id, w.socket, w.address)
+  }
+
+  deny(id: string): void {
+    const w = this.waiting.get(id)
+    if (!w) return
+    this.waiting.delete(id)
+    try {
+      w.socket.send(JSON.stringify({ type: 'denied' }))
+      w.socket.close()
+    } catch {
+      /* already closing */
+    }
+    this.onChange()
+  }
+
+  setRequireApproval(require: boolean): void {
+    this.requireApproval = require
   }
 
   removeGuest(id: string): void {
@@ -239,14 +311,16 @@ export class ShareSession {
   /** Tear down: stop streaming and disconnect every guest. */
   dispose(): void {
     this.stopStream()
-    for (const g of this.guests.values()) {
+    for (const s of [...this.guests.values(), ...this.waiting.values()]) {
       try {
-        g.socket.close()
+        s.socket.send(JSON.stringify({ type: 'ended' }))
+        s.socket.close()
       } catch {
         /* ignore */
       }
     }
     this.guests.clear()
+    this.waiting.clear()
     this.target = null
   }
 }

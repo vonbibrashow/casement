@@ -77,6 +77,11 @@ interface WorkspaceStore {
   stopShare(panelId: string): Promise<void>
   setShareControl(panelId: string, allow: boolean): Promise<void>
   kickShareClient(panelId: string, clientId: string): Promise<void>
+  approveShareGuest(panelId: string, requestId: string): Promise<void>
+  denyShareGuest(panelId: string, requestId: string): Promise<void>
+  setShareApproval(panelId: string, require: boolean): Promise<void>
+  startShareTunnel(): Promise<void>
+  stopShareTunnel(): Promise<void>
 
   // Panel drag-and-drop docking.
   draggingPanelId: string | null
@@ -301,6 +306,26 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     },
     async kickShareClient(panelId, clientId) {
       await window.workspace.kickShareClient(panelId, clientId)
+      set({ shares: await window.workspace.listShares() })
+    },
+    async approveShareGuest(panelId, requestId) {
+      await window.workspace.approveShareGuest(panelId, requestId)
+      set({ shares: await window.workspace.listShares() })
+    },
+    async denyShareGuest(panelId, requestId) {
+      await window.workspace.denyShareGuest(panelId, requestId)
+      set({ shares: await window.workspace.listShares() })
+    },
+    async setShareApproval(panelId, require) {
+      await window.workspace.setShareApproval(panelId, require)
+      set({ shares: await window.workspace.listShares() })
+    },
+    async startShareTunnel() {
+      await window.workspace.startShareTunnel()
+      set({ shares: await window.workspace.listShares() })
+    },
+    async stopShareTunnel() {
+      await window.workspace.stopShareTunnel()
       set({ shares: await window.workspace.listShares() })
     },
 
