@@ -37,6 +37,35 @@ Feels like VS Code / Obsidian / Figma, not like Chrome.
 
 Persistence is versioned (v1 → v2 → v3) with automatic migration on load.
 
+### Panel sharing (remote control)
+
+Share a single panel with someone on a phone or another computer — like AnyDesk,
+but scoped to **one browser panel**. Click the share icon in a panel's chrome
+(or "Share This Panel…" in the palette) to get a link + QR code.
+
+The guest opens the link in any browser — nothing to install. They see the live
+panel and, unless you switch to view-only, can click, type, scroll and navigate
+**inside that panel only**: no access to your other panels, workspaces, files, or
+the app itself. The share follows the panel's active tab.
+
+How it works: frames stream out of that panel's own `WebContents` via the Chrome
+DevTools Protocol screencast; guest input comes back as `Input.dispatch*Event`.
+The app runs a small HTTP + WebSocket server ([`src/main/share`](src/main/share))
+that starts on the first share and **shuts down when the last one ends** — no
+port is open otherwise.
+
+Safety model:
+
+- Links carry a 128-bit token and are compared in constant time; a wrong or
+  missing token gets a 404 and the WebSocket upgrade is refused.
+- One click stops the share; you can disconnect individual guests, or flip the
+  whole session to view-only, at any time.
+- Closing the panel (or the app) ends the share automatically.
+- **Bound to your local network.** Reaching it from outside needs a VPN or
+  tunnel — deliberately not exposed to the internet by default.
+- A guest controlling the panel can use **whatever accounts are already signed in
+  inside it**. Share only with people you trust, and stop when you're done.
+
 ### Plugins
 
 Plugins are internal modules implementing a small `WorkspacePlugin` contract

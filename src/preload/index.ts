@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, type WorkspaceApi } from '@shared/ipc'
-import type { AppState, PanelBounds, TabUpdate } from '@shared/types'
+import type { AppState, PanelBounds, ShareInfo, TabUpdate } from '@shared/types'
 import type { CommandId } from '@shared/keymap'
 
 const api: WorkspaceApi = {
@@ -39,6 +39,17 @@ const api: WorkspaceApi = {
     const listener = (_e: unknown, panelId: string): void => cb(panelId)
     ipcRenderer.on(IPC.panelFocused, listener)
     return () => ipcRenderer.removeListener(IPC.panelFocused, listener)
+  },
+
+  startShare: (panelId) => ipcRenderer.invoke(IPC.shareStart, panelId) as Promise<ShareInfo | null>,
+  stopShare: (panelId) => ipcRenderer.invoke(IPC.shareStop, panelId),
+  setShareControl: (panelId, allowControl) => ipcRenderer.invoke(IPC.shareSetControl, panelId, allowControl),
+  kickShareClient: (panelId, clientId) => ipcRenderer.invoke(IPC.shareKick, panelId, clientId),
+  listShares: () => ipcRenderer.invoke(IPC.shareList) as Promise<ShareInfo[]>,
+  onShareUpdate: (cb: (shares: ShareInfo[]) => void) => {
+    const listener = (_e: unknown, shares: ShareInfo[]): void => cb(shares)
+    ipcRenderer.on(IPC.shareUpdate, listener)
+    return () => ipcRenderer.removeListener(IPC.shareUpdate, listener)
   }
 }
 

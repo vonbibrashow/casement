@@ -73,6 +73,12 @@ export class Panel {
     return this.activeTabId ? this.tabs.get(this.activeTabId) : undefined
   }
 
+  /** The active tab's WebContents — the target when this panel is shared. */
+  activeWebContents(): Electron.WebContents | null {
+    const tab = this.active()
+    return tab && !tab.view.webContents.isDestroyed() ? tab.view.webContents : null
+  }
+
   setBounds(bounds: PanelBounds): void {
     this.bounds = bounds
     this.active()?.setBounds(bounds)

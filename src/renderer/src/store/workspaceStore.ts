@@ -4,6 +4,7 @@ import {
   type AppState,
   type LayoutNode,
   type PanelState,
+  type ShareInfo,
   type TabState,
   type TabUpdate,
   type WorkspaceDoc,
@@ -67,6 +68,15 @@ interface WorkspaceStore {
   pluginsOpen: boolean
   openPlugins(): void
   closePlugins(): void
+
+  // Panel sharing (remote guests).
+  shares: ShareInfo[]
+  sharePanelId: string | null
+  openShare(panelId: string): Promise<void>
+  closeShare(): void
+  stopShare(panelId: string): Promise<void>
+  setShareControl(panelId: string, allow: boolean): Promise<void>
+  kickShareClient(panelId: string, clientId: string): Promise<void>
 
   // Panel drag-and-drop docking.
   draggingPanelId: string | null
@@ -272,6 +282,28 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     openPlugins: () => set({ pluginsOpen: true }),
     closePlugins: () => set({ pluginsOpen: false }),
 
+    shares: [],
+    sharePanelId: null,
+    async openShare(panelId) {
+      // Opening the dialog starts the share, so a link exists to copy/scan.
+      const info = await window.workspace.startShare(panelId)
+      set({ sharePanelId: panelId })
+      if (info) set({ shares: await window.workspace.listShares() })
+    },
+    closeShare: () => set({ sharePanelId: null }),
+    async stopShare(panelId) {
+      await window.workspace.stopShare(panelId)
+      set({ shares: await window.workspace.listShares() })
+    },
+    async setShareControl(panelId, allow) {
+      await window.workspace.setShareControl(panelId, allow)
+      set({ shares: await window.workspace.listShares() })
+    },
+    async kickShareClient(panelId, clientId) {
+      await window.workspace.kickShareClient(panelId, clientId)
+      set({ shares: await window.workspace.listShares() })
+    },
+
     beginPanelDrag(panelId) {
       // Hide native views so DOM drop indicators are visible above them.
       panelIds(get().layout).forEach((id) => void window.workspace.setPanelVisible(id, false))
@@ -300,6 +332,7 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     async init() {
       const appState = await window.workspace.loadApp()
       window.workspace.onTabUpdate((u) => get().applyTabUpdate(u))
+      window.workspace.onShareUpdate((shares) => set({ shares }))
 
       if (appState && appState.workspaces.length > 0) {
         loadAppState(appState)

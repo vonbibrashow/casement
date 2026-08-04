@@ -2,7 +2,7 @@
 // on `window.workspace`. Keeping these in one shared module means main, preload
 // and renderer can never drift out of sync.
 
-import type { AppState, PanelBounds, TabUpdate } from './types'
+import type { AppState, PanelBounds, ShareInfo, TabUpdate } from './types'
 import type { CommandId } from './keymap'
 
 export const IPC = {
@@ -28,10 +28,16 @@ export const IPC = {
   appSave: 'app:save',
   appExport: 'app:export',
   appImport: 'app:import',
+  shareStart: 'share:start',
+  shareStop: 'share:stop',
+  shareSetControl: 'share:set-control',
+  shareList: 'share:list',
+  shareKick: 'share:kick',
   // main → renderer (send)
   tabUpdate: 'tab:update',
   shortcut: 'shortcut',
-  panelFocused: 'panel:focused'
+  panelFocused: 'panel:focused',
+  shareUpdate: 'share:update'
 } as const
 
 /** The typed bridge surface available in the renderer as `window.workspace`. */
@@ -67,6 +73,17 @@ export interface WorkspaceApi {
   onShortcut(cb: (command: CommandId, panelId: string) => void): () => void
   /** A panel's web content gained focus (e.g. user clicked into a page). */
   onPanelFocused(cb: (panelId: string) => void): () => void
+
+  // --- panel sharing ---
+  /** Start sharing a panel; resolves with the live share (URLs + token). */
+  startShare(panelId: string): Promise<ShareInfo | null>
+  stopShare(panelId: string): Promise<void>
+  setShareControl(panelId: string, allowControl: boolean): Promise<void>
+  /** Disconnect one connected guest. */
+  kickShareClient(panelId: string, clientId: string): Promise<void>
+  listShares(): Promise<ShareInfo[]>
+  /** Fires whenever a share starts/stops or a guest connects/disconnects. */
+  onShareUpdate(cb: (shares: ShareInfo[]) => void): () => void
 }
 
 declare global {

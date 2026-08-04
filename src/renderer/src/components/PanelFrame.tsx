@@ -39,6 +39,8 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
   const split = useWorkspace((s) => s.split)
   const closePanel = useWorkspace((s) => s.closePanel)
   const setFocusedPanel = useWorkspace((s) => s.setFocusedPanel)
+  const openShare = useWorkspace((s) => s.openShare)
+  const isShared = useWorkspace((s) => s.shares.some((x) => x.panelId === id))
   const beginPanelDrag = useWorkspace((s) => s.beginPanelDrag)
   const updatePanelDrag = useWorkspace((s) => s.updatePanelDrag)
   const endPanelDrag = useWorkspace((s) => s.endPanelDrag)
@@ -179,6 +181,20 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
         <TabStrip panelId={id} />
 
         <div className="flex shrink-0 items-center gap-0.5 pl-0.5">
+          <button
+            onClick={() => void openShare(id)}
+            title={isShared ? 'Sharing — manage guests' : 'Share this panel'}
+            className={`flex h-6 w-6 items-center justify-center rounded ${
+              isShared ? 'bg-emerald-500/20 text-emerald-300' : 'text-slate-400 hover:bg-surface-raised hover:text-accent'
+            }`}
+          >
+            <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.5}>
+              <circle cx="6" cy="10" r="2" />
+              <circle cx="14" cy="5.5" r="2" />
+              <circle cx="14" cy="14.5" r="2" />
+              <path d="M7.8 9l4.4-2.5M7.8 11l4.4 2.5" strokeLinecap="round" />
+            </svg>
+          </button>
           <SplitButton edge="left" onClick={() => split(id, 'left')} />
           <SplitButton edge="right" onClick={() => split(id, 'right')} />
           <SplitButton edge="top" onClick={() => split(id, 'top')} />

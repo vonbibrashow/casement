@@ -161,6 +161,20 @@ export function useCommands(): PaletteCommand[] {
     run: () => useWorkspace.getState().openPlugins()
   })
   list.push({
+    id: 'share.panel',
+    title: 'Share This Panel…',
+    subtitle: 'Share',
+    run: () => void useWorkspace.getState().openShare(targetPanel())
+  })
+  for (const sh of useWorkspace.getState().shares) {
+    list.push({
+      id: `share.stop:${sh.panelId}`,
+      title: 'Stop Sharing Panel',
+      subtitle: 'Share',
+      run: () => void useWorkspace.getState().stopShare(sh.panelId)
+    })
+  }
+  list.push({
     id: 'sync.export',
     title: 'Export Workspaces…',
     subtitle: 'Sync',

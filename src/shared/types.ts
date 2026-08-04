@@ -96,3 +96,26 @@ export interface TabUpdate {
 }
 
 export const DEFAULT_URL = 'https://www.google.com'
+
+// --- panel sharing ----------------------------------------------------------
+
+/** A device currently connected to a shared panel. */
+export interface ShareClient {
+  id: string
+  /** Remote address as seen by the server (informational only). */
+  address: string
+  connectedAt: number
+}
+
+/** Live state of one shared panel. */
+export interface ShareInfo {
+  panelId: string
+  /** Unguessable token embedded in the share URL. */
+  token: string
+  /** URLs the guest can open — loopback plus any LAN addresses. */
+  urls: string[]
+  /** False = guest can watch but not click/type. */
+  allowControl: boolean
+  clients: ShareClient[]
+  startedAt: number
+}
