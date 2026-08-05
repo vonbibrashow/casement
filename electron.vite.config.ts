@@ -1,11 +1,17 @@
 import { resolve } from 'node:path'
-import { defineConfig } from 'electron-vite'
+import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 
 const shared = { '@shared': resolve('src/shared') }
 
+// Node dependencies must stay external in main/preload rather than being
+// bundled. `ws` in particular picks its native or JS implementation through
+// `try { require('bufferutil') } catch { …fallback… }`; bundling rewrites that
+// so the fallback never binds and `bufferUtil.unmask` ends up undefined, which
+// crashes the main process on the first inbound WebSocket frame.
 export default defineConfig({
   main: {
+    plugins: [externalizeDepsPlugin()],
     resolve: { alias: shared },
     build: {
       rollupOptions: {
@@ -14,6 +20,7 @@ export default defineConfig({
     }
   },
   preload: {
+    plugins: [externalizeDepsPlugin()],
     resolve: { alias: shared },
     build: {
       rollupOptions: {
