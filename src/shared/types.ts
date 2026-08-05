@@ -145,13 +145,29 @@ export interface PendingGuest {
 /** Public-internet exposure via a tunnel process. */
 export type TunnelState = 'off' | 'starting' | 'on' | 'unavailable' | 'error'
 
+/**
+ * Where a guest can reach a share. A machine usually has several addresses and
+ * most of them don't work from another device, so each is classified and ranked
+ * rather than guessed at.
+ */
+export type ShareEndpointKind = 'lan' | 'vpn' | 'public' | 'local' | 'other'
+
+export interface ShareEndpoint {
+  url: string
+  /** Adapter name, e.g. "Wi-Fi" or "Tailscale". */
+  label: string
+  kind: ShareEndpointKind
+  /** One-line explanation of who can reach this address. */
+  hint: string
+}
+
 /** Live state of one shared panel. */
 export interface ShareInfo {
   panelId: string
   /** Unguessable token embedded in the share URL. */
   token: string
-  /** URLs the guest can open — loopback plus any LAN addresses. */
-  urls: string[]
+  /** Reachable addresses, best first. Unreachable ones are filtered out. */
+  endpoints: ShareEndpoint[]
   /** Internet-reachable URL while a tunnel is running. */
   publicUrl: string | null
   tunnelState: TunnelState

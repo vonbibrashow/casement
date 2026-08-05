@@ -3,7 +3,7 @@ import { networkInterfaces } from 'node:os'
 import { timingSafeEqual } from 'node:crypto'
 import { WebSocketServer } from 'ws'
 import type { WebContents } from 'electron'
-import type { ShareInfo } from '@shared/types'
+import type { ShareEndpoint, ShareInfo } from '@shared/types'
 import { ShareSession } from './ShareSession'
 import { clientPage } from './clientPage'
 import { Tunnel } from './tunnel'
@@ -20,15 +20,35 @@ function tokenMatches(a: string, b: string): boolean {
   return ba.length === bb.length && timingSafeEqual(ba, bb)
 }
 
-/** Every non-internal IPv4 address, so the host can pick one their phone can reach. */
-function lanAddresses(): string[] {
-  const out: string[] = []
-  for (const list of Object.values(networkInterfaces())) {
+const isPrivateLan = (ip: string): boolean =>
+  /^10\./.test(ip) || /^192\.168\./.test(ip) || /^172\.(1[6-9]|2\d|3[01])\./.test(ip)
+
+/** 100.64.0.0/10 — carrier-grade NAT, used by Tailscale and similar VPNs. */
+const isVpnRange = (ip: string): boolean => {
+  const m = /^100\.(\d+)\./.exec(ip)
+  return !!m && Number(m[1]) >= 64 && Number(m[1]) <= 127
+}
+
+/**
+ * Candidate addresses a guest could actually dial, best first.
+ *
+ * A machine typically has several IPv4 addresses and most are useless here:
+ * 169.254.x.x is link-local (an adapter that never got a DHCP lease) and is
+ * unreachable from any other device, which shows up as "loads, then times out".
+ * Those are dropped; real LAN addresses rank above VPN ones.
+ */
+function candidateAddresses(): Array<{ address: string; label: string; kind: 'lan' | 'vpn' | 'other' }> {
+  const out: Array<{ address: string; label: string; kind: 'lan' | 'vpn' | 'other' }> = []
+  for (const [label, list] of Object.entries(networkInterfaces())) {
     for (const ni of list ?? []) {
-      if (ni.family === 'IPv4' && !ni.internal) out.push(ni.address)
+      if (ni.family !== 'IPv4' || ni.internal) continue
+      if (ni.address.startsWith('169.254.')) continue // link-local: never reachable
+      const kind = isPrivateLan(ni.address) ? 'lan' : isVpnRange(ni.address) ? 'vpn' : 'other'
+      out.push({ address: ni.address, label, kind })
     }
   }
-  return out
+  const rank = { lan: 0, vpn: 1, other: 2 } as const
+  return out.sort((a, b) => rank[a.kind] - rank[b.kind])
 }
 
 /**
@@ -127,14 +147,34 @@ export class ShareServer {
   }
 
   private info(s: ShareSession): ShareInfo {
-    const urls = [
-      `http://localhost:${this.port}/s/${s.token}`,
-      ...lanAddresses().map((a) => `http://${a}:${this.port}/s/${s.token}`)
-    ]
+    const path = `/s/${s.token}`
+    const endpoints: ShareEndpoint[] = []
+    if (this.tunnel.url) {
+      endpoints.push({ url: `${this.tunnel.url}${path}`, label: 'Tunnel', kind: 'public', hint: 'Reachable from anywhere' })
+    }
+    for (const a of candidateAddresses()) {
+      endpoints.push({
+        url: `http://${a.address}:${this.port}${path}`,
+        label: a.label,
+        kind: a.kind,
+        hint:
+          a.kind === 'lan'
+            ? 'Devices on the same network'
+            : a.kind === 'vpn'
+              ? 'Devices on your VPN, anywhere'
+              : 'May not be reachable'
+      })
+    }
+    endpoints.push({
+      url: `http://localhost:${this.port}${path}`,
+      label: 'This machine',
+      kind: 'local',
+      hint: 'Only this computer'
+    })
     return {
       panelId: s.panelId,
       token: s.token,
-      urls,
+      endpoints,
       publicUrl: this.tunnel.url ? `${this.tunnel.url}/s/${s.token}` : null,
       tunnelState: this.tunnel.state,
       tunnelMessage: this.tunnel.message,

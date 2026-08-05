@@ -92,8 +92,16 @@ Safety model:
 - A guest you admit can use **whatever accounts are already signed in inside that
   panel**. Admit only people you trust, and stop when you're done.
 
+**Picking an address.** A machine usually has several IPv4 addresses and most
+can't be reached from another device — `169.254.x.x` link-local ones in
+particular (an adapter with no DHCP lease) produce the classic "loads, then
+times out". Those are filtered out; the rest are ranked (real LAN first, then
+VPN such as Tailscale, then this machine) and shown in a picker with a note on
+who can reach each. If a link times out, choose another address.
+
 **Internet access (optional).** Sharing works on your local network with no third
-party involved. To reach someone elsewhere, toggle *Internet access* in the share
+party involved. If you already run a VPN like Tailscale, its address in the
+picker reaches your devices anywhere without any tunnel at all. To reach someone elsewhere, toggle *Internet access* in the share
 dialog — it runs a [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
 quick tunnel and swaps the link for a public one. Nothing is installed for you: if
 `cloudflared` isn't on your machine the toggle says so and stays off. The tunnel

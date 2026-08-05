@@ -40,13 +40,14 @@ function ModalInner({ panelId }: { panelId: string }): JSX.Element {
     return p?.tabs.find((t) => t.id === p.activeTabId)?.title ?? 'Panel'
   })
 
-  // Prefer the public URL when a tunnel is up, else a LAN address —
-  // localhost only ever works on this machine.
-  const urls = share?.urls ?? []
+  // Endpoints arrive ranked (public > LAN > VPN > this machine) with
+  // unreachable link-local addresses already filtered out.
+  const endpoints = share?.endpoints ?? []
   const publicUrl = share?.publicUrl ?? null
+  const [chosen, setChosen] = useState<string | null>(null)
   const primary = useMemo(
-    () => publicUrl ?? urls.find((u) => !u.includes('localhost')) ?? urls[0] ?? '',
-    [publicUrl, urls]
+    () => (chosen && endpoints.some((e) => e.url === chosen) ? chosen : endpoints[0]?.url ?? ''),
+    [chosen, endpoints]
   )
   const [qr, setQr] = useState('')
   const [copied, setCopied] = useState(false)
@@ -125,17 +126,24 @@ function ModalInner({ panelId }: { panelId: string }): JSX.Element {
                     {copied ? 'Copied' : 'Copy'}
                   </button>
                 </div>
+                {/* A machine has several addresses and most don't work from
+                    another device — so make the choice explicit. */}
+                {endpoints.length > 1 && (
+                  <select
+                    value={primary}
+                    onChange={(e) => setChosen(e.target.value)}
+                    className="w-full rounded-md bg-surface-sunken px-2 py-1 text-[11px] text-slate-300 outline-none ring-accent/50 focus:ring-1"
+                  >
+                    {endpoints.map((e) => (
+                      <option key={e.url} value={e.url}>
+                        {e.label} — {e.hint}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <p className="text-[11px] leading-relaxed text-slate-500">
-                  {publicUrl ? (
-                    <>
-                      Reachable <span className="text-emerald-300/80">from anywhere</span> while internet access is on.
-                    </>
-                  ) : (
-                    <>
-                      Scan on a phone, or open on another computer on the{' '}
-                      <span className="text-slate-400">same network</span>.
-                    </>
-                  )}
+                  Scan on a phone, or open the link on another device. If it loads then times out, pick a different
+                  address above.
                 </p>
 
                 <Toggle
