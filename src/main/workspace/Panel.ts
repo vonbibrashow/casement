@@ -118,9 +118,17 @@ export class Panel {
   }
 
   destroy(): void {
+    // On app shutdown this runs from the window's own `closed` event, by which
+    // point the BrowserWindow is already gone — touching contentView then
+    // throws and would abort the rest of the shutdown chain.
+    const windowAlive = !this.window.isDestroyed()
     for (const tab of this.tabs.values()) {
-      this.window.contentView.removeChildView(tab.view)
-      tab.destroy()
+      try {
+        if (windowAlive) this.window.contentView.removeChildView(tab.view)
+        tab.destroy()
+      } catch {
+        /* view already torn down with the window */
+      }
     }
     this.tabs.clear()
     this.activeTabId = null

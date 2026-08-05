@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useWorkspace, type DropTarget } from '../store/workspaceStore'
-import type { SplitEdge } from '../layout/tree'
+import { panelIds, type SplitEdge } from '../layout/tree'
 import { TabStrip } from './TabStrip'
 
 /** Find which panel (other than the dragged one) the cursor is over + which edge. */
@@ -47,7 +47,29 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
 
   const viewportRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState('')
+  // Below this width the four split buttons + close would crowd out the address
+  // bar and tabs, so they collapse into an overflow menu.
+  const [compact, setCompact] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  useLayoutEffect(() => {
+    const el = rootRef.current
+    if (!el) return
+    const ro = new ResizeObserver(([entry]) => setCompact(entry.contentRect.width < 620))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  // The menu drops over the viewport, where the native view paints above the
+  // DOM — hide panels while it's open (same pattern as the palette).
+  useEffect(() => {
+    if (!menuOpen) return
+    const ids = panelIds(useWorkspace.getState().layout)
+    ids.forEach((p) => void window.workspace.setPanelVisible(p, false))
+    return () => panelIds(useWorkspace.getState().layout).forEach((p) => void window.workspace.setPanelVisible(p, true))
+  }, [menuOpen])
 
   const activeTab = panel?.tabs.find((t) => t.id === panel.activeTabId) ?? panel?.tabs[0]
 
@@ -123,6 +145,7 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
 
   return (
     <div
+      ref={rootRef}
       data-panel-id={id}
       onPointerDownCapture={() => setFocusedPanel(id)}
       className={`flex h-full w-full flex-col overflow-hidden rounded-md border bg-surface ${
@@ -164,7 +187,7 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
           )}
         </IconButton>
 
-        <form onSubmit={submit} className="min-w-[110px] flex-[2]">
+        <form onSubmit={submit} className="min-w-[120px] max-w-[460px] flex-[1_1_190px]">
           <input
             ref={inputRef}
             value={draft}
@@ -195,20 +218,77 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
               <path d="M7.8 9l4.4-2.5M7.8 11l4.4 2.5" strokeLinecap="round" />
             </svg>
           </button>
-          <SplitButton edge="left" onClick={() => split(id, 'left')} />
-          <SplitButton edge="right" onClick={() => split(id, 'right')} />
-          <SplitButton edge="top" onClick={() => split(id, 'top')} />
-          <SplitButton edge="bottom" onClick={() => split(id, 'bottom')} />
-          <button
-            onClick={() => closePanel(id)}
-            disabled={!canClose}
-            title="Close panel"
-            className="ml-0.5 flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-red-500/20 hover:text-red-300 disabled:opacity-25 disabled:hover:bg-transparent"
-          >
-            <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.6}>
-              <path d="M6 6l8 8M14 6l-8 8" strokeLinecap="round" />
-            </svg>
-          </button>
+          {compact ? (
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen((o) => !o)}
+                title="Panel actions"
+                className={`flex h-6 w-6 items-center justify-center rounded ${
+                  menuOpen ? 'bg-surface-raised text-white' : 'text-slate-400 hover:bg-surface-raised hover:text-white'
+                }`}
+              >
+                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor">
+                  <circle cx="4.5" cy="10" r="1.4" />
+                  <circle cx="10" cy="10" r="1.4" />
+                  <circle cx="15.5" cy="10" r="1.4" />
+                </svg>
+              </button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onPointerDown={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 top-7 z-50 w-40 overflow-hidden rounded-lg border border-surface-border bg-surface p-1 shadow-2xl">
+                    {(['left', 'right', 'top', 'bottom'] as const).map((edge) => (
+                      <button
+                        key={edge}
+                        onClick={() => {
+                          setMenuOpen(false)
+                          split(id, edge)
+                        }}
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-slate-300 hover:bg-surface-raised hover:text-white"
+                      >
+                        <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.4}>
+                          <rect x="3.5" y="3.5" width="13" height="13" rx="2" className="opacity-40" />
+                          {edgeGlyph[edge]}
+                        </svg>
+                        Split {edge}
+                      </button>
+                    ))}
+                    <div className="my-1 h-px bg-surface-border" />
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false)
+                        closePanel(id)
+                      }}
+                      disabled={!canClose}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-slate-300 hover:bg-red-500/20 hover:text-red-300 disabled:opacity-30 disabled:hover:bg-transparent"
+                    >
+                      <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.6}>
+                        <path d="M6 6l8 8M14 6l-8 8" strokeLinecap="round" />
+                      </svg>
+                      Close panel
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <>
+              <SplitButton edge="left" onClick={() => split(id, 'left')} />
+              <SplitButton edge="right" onClick={() => split(id, 'right')} />
+              <SplitButton edge="top" onClick={() => split(id, 'top')} />
+              <SplitButton edge="bottom" onClick={() => split(id, 'bottom')} />
+              <button
+                onClick={() => closePanel(id)}
+                disabled={!canClose}
+                title="Close panel"
+                className="ml-0.5 flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-red-500/20 hover:text-red-300 disabled:opacity-25 disabled:hover:bg-transparent"
+              >
+                <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.6}>
+                  <path d="M6 6l8 8M14 6l-8 8" strokeLinecap="round" />
+                </svg>
+              </button>
+            </>
+          )}
         </div>
       </div>
 

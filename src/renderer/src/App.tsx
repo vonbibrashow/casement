@@ -9,6 +9,7 @@ import { CommandPalette } from './components/CommandPalette'
 import { PanelDragLayer } from './components/PanelDragLayer'
 import { PluginsModal } from './components/PluginsModal'
 import { ShareModal } from './components/ShareModal'
+import { PrivacyModal } from './components/PrivacyModal'
 import { pluginHost } from './plugins/host'
 
 // Guard against React StrictMode's double-invoked effects seeding two workspaces.
@@ -62,6 +63,7 @@ export function App(): JSX.Element {
           <CommandPalette />
           <PluginsModal />
           <ShareModal />
+          <PrivacyModal />
         </div>
       </div>
       <PanelDragLayer />

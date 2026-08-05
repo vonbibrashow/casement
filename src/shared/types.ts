@@ -97,6 +97,34 @@ export interface TabUpdate {
 
 export const DEFAULT_URL = 'https://www.google.com'
 
+// --- selective forget-on-exit ----------------------------------------------
+
+/** Which sites get wiped at shutdown. Everything unmatched is preserved. */
+export interface PrivacyRules {
+  /** Master switch — nothing is cleared unless this is on. */
+  enabled: boolean
+  /** Match the built-in adult-content patterns. */
+  clearAdult: boolean
+  /** Extra domains the user wants forgotten (suffix match). */
+  forgetDomains: string[]
+  /** Never cleared, even if another rule matches. Wins over everything. */
+  keepDomains: string[]
+  /** Also strip matching entries from saved tab history. */
+  clearHistory: boolean
+}
+
+export interface CleanupReport {
+  hosts: string[]
+  cookiesRemoved: number
+  tabsRemoved: number
+}
+
+/** Dry run: what the current rules would drop vs keep, from saved history. */
+export interface PrivacyPreview {
+  forget: string[]
+  keep: string[]
+}
+
 // --- panel sharing ----------------------------------------------------------
 
 /** A device currently connected to a shared panel. */

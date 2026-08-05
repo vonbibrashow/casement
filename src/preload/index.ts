@@ -1,6 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, type WorkspaceApi } from '@shared/ipc'
-import type { AppState, PanelBounds, ShareInfo, TabUpdate } from '@shared/types'
+import type {
+  AppState,
+  CleanupReport,
+  PanelBounds,
+  PrivacyPreview,
+  PrivacyRules,
+  ShareInfo,
+  TabUpdate
+} from '@shared/types'
 import type { CommandId } from '@shared/keymap'
 
 const api: WorkspaceApi = {
@@ -55,7 +63,12 @@ const api: WorkspaceApi = {
     const listener = (_e: unknown, shares: ShareInfo[]): void => cb(shares)
     ipcRenderer.on(IPC.shareUpdate, listener)
     return () => ipcRenderer.removeListener(IPC.shareUpdate, listener)
-  }
+  },
+
+  getPrivacyRules: () => ipcRenderer.invoke(IPC.privacyGet) as Promise<PrivacyRules>,
+  setPrivacyRules: (rules: PrivacyRules) => ipcRenderer.invoke(IPC.privacySet, rules),
+  previewPrivacy: (rules: PrivacyRules) => ipcRenderer.invoke(IPC.privacyPreview, rules) as Promise<PrivacyPreview>,
+  clearNow: (rules: PrivacyRules) => ipcRenderer.invoke(IPC.privacyClearNow, rules) as Promise<CleanupReport>
 }
 
 contextBridge.exposeInMainWorld('workspace', api)

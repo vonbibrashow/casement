@@ -2,7 +2,15 @@
 // on `window.workspace`. Keeping these in one shared module means main, preload
 // and renderer can never drift out of sync.
 
-import type { AppState, PanelBounds, ShareInfo, TabUpdate } from './types'
+import type {
+  AppState,
+  CleanupReport,
+  PanelBounds,
+  PrivacyPreview,
+  PrivacyRules,
+  ShareInfo,
+  TabUpdate
+} from './types'
 import type { CommandId } from './keymap'
 
 export const IPC = {
@@ -38,6 +46,10 @@ export const IPC = {
   shareSetApproval: 'share:set-approval',
   shareTunnelStart: 'share:tunnel-start',
   shareTunnelStop: 'share:tunnel-stop',
+  privacyGet: 'privacy:get',
+  privacySet: 'privacy:set',
+  privacyClearNow: 'privacy:clear-now',
+  privacyPreview: 'privacy:preview',
   // main → renderer (send)
   tabUpdate: 'tab:update',
   shortcut: 'shortcut',
@@ -96,6 +108,14 @@ export interface WorkspaceApi {
   listShares(): Promise<ShareInfo[]>
   /** Fires whenever a share starts/stops or a guest connects/disconnects. */
   onShareUpdate(cb: (shares: ShareInfo[]) => void): () => void
+
+  // --- selective forget-on-exit ---
+  getPrivacyRules(): Promise<PrivacyRules>
+  setPrivacyRules(rules: PrivacyRules): Promise<void>
+  /** Dry run — which saved hosts the rules would forget vs keep. */
+  previewPrivacy(rules: PrivacyRules): Promise<PrivacyPreview>
+  /** Run the clear immediately instead of waiting for exit. */
+  clearNow(rules: PrivacyRules): Promise<CleanupReport>
 }
 
 declare global {

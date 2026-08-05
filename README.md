@@ -37,6 +37,29 @@ Feels like VS Code / Obsidian / Figma, not like Chrome.
 
 Persistence is versioned (v1 → v2 → v3) with automatic migration on load.
 
+### Forget on exit
+
+Wipe chosen sites when you quit while leaving everything else signed in — so a
+shared machine doesn't keep a record of certain browsing, without logging you out
+of shopping and banking every time. Open it from the palette ("Forget on Exit…").
+
+- **Adult sites** — a built-in hostname filter, on by default once the feature is
+  enabled.
+- **Also forget these** — your own domains, subdomains included.
+- **Never clear these** — a protected list that beats every other rule, seeded
+  with common payment hosts so a broad keyword can't take out something that
+  matters.
+- Clears cookies and site storage (localStorage, IndexedDB, service workers,
+  cache storage) per matched origin, and optionally the saved tab history.
+  Anything unmatched is untouched.
+- A live **dry run** shows exactly which saved sites would be forgotten vs kept
+  before anything is deleted, and **Clear now** runs it on demand.
+
+Worth knowing: banks and payment processors don't read your browsing history —
+they see their own cookies, your device and network. So this won't change fraud
+checks. What it does do is keep browsing off a shared machine and cut adtech
+profiling, while preserving the logins that make checkout painless.
+
 ### Panel sharing (remote control)
 
 Share a single panel with someone on a phone or another computer — like AnyDesk,

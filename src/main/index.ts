@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, shell } from 'electron'
 import { join } from 'node:path'
 import { WorkspaceManager } from './workspace/WorkspaceManager'
 import { loadWindowState, trackWindowState } from './windowState'
+import { loadRules, runCleanup } from './privacy/cleaner'
 
 // No native menu: our own keymap owns Ctrl+R / Ctrl+W etc. so they act on the
 // active tab/panel instead of reloading or closing the chrome window.
@@ -51,4 +52,22 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+// Selective forget-on-exit. Quitting is deferred until the clear finishes,
+// otherwise the process can die mid-write and leave data behind.
+const CLEANUP_TIMEOUT_MS = 8000
+let cleanupDone = false
+app.on('before-quit', (event) => {
+  if (cleanupDone) return
+  event.preventDefault()
+  const cleanup = loadRules().then((rules) => runCleanup(rules))
+  // A watchdog so a stalled session call can never trap the app in "quitting".
+  const watchdog = new Promise((resolve) => setTimeout(resolve, CLEANUP_TIMEOUT_MS))
+  void Promise.race([cleanup, watchdog])
+    .catch(() => undefined)
+    .finally(() => {
+      cleanupDone = true
+      app.quit()
+    })
 })

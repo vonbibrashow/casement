@@ -4,8 +4,9 @@ import { loadApp, saveApp } from './persistence'
 import { moveWindowToDisplay } from '../windowState'
 import { exportApp, importApp } from './sync'
 import { ShareServer } from '../share/ShareServer'
+import { loadRules, saveRules, runCleanup, previewCleanup } from '../privacy/cleaner'
 import { IPC } from '@shared/ipc'
-import type { AppState, PanelBounds, TabUpdate } from '@shared/types'
+import type { AppState, PanelBounds, PrivacyRules, TabUpdate } from '@shared/types'
 import type { CommandId } from '@shared/keymap'
 
 /**
@@ -51,14 +52,26 @@ export class WorkspaceManager {
   private destroyPanel(panelId: string): void {
     const panel = this.panels.get(panelId)
     if (!panel) return
-    // A panel that no longer exists must never stay shared.
-    this.shares.stop(panelId)
-    panel.destroy()
+    try {
+      // A panel that no longer exists must never stay shared.
+      this.shares.stop(panelId)
+      panel.destroy()
+    } catch {
+      /* keep tearing the rest down */
+    }
     this.panels.delete(panelId)
   }
 
+  /**
+   * Runs from the window's `closed` event, so nothing here may throw: an
+   * exception would break the shutdown chain and the app would never quit.
+   */
   private disposeAll(): void {
-    this.shares.disposeAll()
+    try {
+      this.shares.disposeAll()
+    } catch {
+      /* ignore */
+    }
     for (const id of [...this.panels.keys()]) this.destroyPanel(id)
   }
 
@@ -109,6 +122,13 @@ export class WorkspaceManager {
     ipcMain.handle(IPC.shareTunnelStart, () => this.shares.startTunnel())
     ipcMain.handle(IPC.shareTunnelStop, () => this.shares.stopTunnel())
     ipcMain.handle(IPC.shareList, () => this.shares.list())
+
+    ipcMain.handle(IPC.privacyGet, () => loadRules())
+    ipcMain.handle(IPC.privacySet, (_e, rules: PrivacyRules) => saveRules(rules))
+    ipcMain.handle(IPC.privacyPreview, (_e, rules: PrivacyRules) => previewCleanup(rules))
+    // "Clear now" runs the same path as exit, but forced on regardless of the
+    // master switch — the user just asked for it explicitly.
+    ipcMain.handle(IPC.privacyClearNow, (_e, rules: PrivacyRules) => runCleanup({ ...rules, enabled: true }))
   }
 }
 

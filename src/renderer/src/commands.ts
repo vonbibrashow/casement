@@ -175,6 +175,12 @@ export function useCommands(): PaletteCommand[] {
     })
   }
   list.push({
+    id: 'privacy.manage',
+    title: 'Forget on Exit…',
+    subtitle: 'Privacy',
+    run: () => useWorkspace.getState().openPrivacy()
+  })
+  list.push({
     id: 'sync.export',
     title: 'Export Workspaces…',
     subtitle: 'Sync',

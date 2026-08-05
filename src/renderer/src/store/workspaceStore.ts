@@ -68,6 +68,9 @@ interface WorkspaceStore {
   pluginsOpen: boolean
   openPlugins(): void
   closePlugins(): void
+  privacyOpen: boolean
+  openPrivacy(): void
+  closePrivacy(): void
 
   // Panel sharing (remote guests).
   shares: ShareInfo[]
@@ -278,6 +281,7 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     focusedPanelId: null,
     paletteOpen: false,
     pluginsOpen: false,
+    privacyOpen: false,
     draggingPanelId: null,
     dropTarget: null,
     dragPos: null,
@@ -286,6 +290,8 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     closePalette: () => set({ paletteOpen: false }),
     openPlugins: () => set({ pluginsOpen: true }),
     closePlugins: () => set({ pluginsOpen: false }),
+    openPrivacy: () => set({ privacyOpen: true }),
+    closePrivacy: () => set({ privacyOpen: false }),
 
     shares: [],
     sharePanelId: null,
