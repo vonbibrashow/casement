@@ -97,6 +97,22 @@ export interface TabUpdate {
 
 export const DEFAULT_URL = 'https://www.google.com'
 
+// --- third-party attribution -------------------------------------------------
+
+export interface LicensePackage {
+  name: string
+  version: string
+  license: string
+  homepage: string
+  text: string
+}
+
+export interface LicenseManifest {
+  generatedAt: string
+  runtime: { electron: string; chromium: string; note: string }
+  packages: LicensePackage[]
+}
+
 // --- selective forget-on-exit ----------------------------------------------
 
 /** Which sites get wiped at shutdown. Everything unmatched is preserved. */

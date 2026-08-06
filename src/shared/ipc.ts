@@ -5,6 +5,7 @@
 import type {
   AppState,
   CleanupReport,
+  LicenseManifest,
   PanelBounds,
   PrivacyPreview,
   PrivacyRules,
@@ -50,6 +51,9 @@ export const IPC = {
   privacySet: 'privacy:set',
   privacyClearNow: 'privacy:clear-now',
   privacyPreview: 'privacy:preview',
+  licensesGet: 'licenses:get',
+  licensesOpenChromium: 'licenses:open-chromium',
+  appVersion: 'app:version',
   // main → renderer (send)
   tabUpdate: 'tab:update',
   shortcut: 'shortcut',
@@ -116,6 +120,12 @@ export interface WorkspaceApi {
   previewPrivacy(rules: PrivacyRules): Promise<PrivacyPreview>
   /** Run the clear immediately instead of waiting for exit. */
   clearNow(rules: PrivacyRules): Promise<CleanupReport>
+
+  // --- attribution ---
+  getLicenses(): Promise<LicenseManifest | null>
+  /** Opens Chromium's bundled licence file in the system viewer. */
+  openChromiumLicenses(): Promise<boolean>
+  getAppVersion(): Promise<string>
 }
 
 declare global {

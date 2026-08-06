@@ -3,6 +3,7 @@ import { IPC, type WorkspaceApi } from '@shared/ipc'
 import type {
   AppState,
   CleanupReport,
+  LicenseManifest,
   PanelBounds,
   PrivacyPreview,
   PrivacyRules,
@@ -68,7 +69,11 @@ const api: WorkspaceApi = {
   getPrivacyRules: () => ipcRenderer.invoke(IPC.privacyGet) as Promise<PrivacyRules>,
   setPrivacyRules: (rules: PrivacyRules) => ipcRenderer.invoke(IPC.privacySet, rules),
   previewPrivacy: (rules: PrivacyRules) => ipcRenderer.invoke(IPC.privacyPreview, rules) as Promise<PrivacyPreview>,
-  clearNow: (rules: PrivacyRules) => ipcRenderer.invoke(IPC.privacyClearNow, rules) as Promise<CleanupReport>
+  clearNow: (rules: PrivacyRules) => ipcRenderer.invoke(IPC.privacyClearNow, rules) as Promise<CleanupReport>,
+
+  getLicenses: () => ipcRenderer.invoke(IPC.licensesGet) as Promise<LicenseManifest | null>,
+  openChromiumLicenses: () => ipcRenderer.invoke(IPC.licensesOpenChromium) as Promise<boolean>,
+  getAppVersion: () => ipcRenderer.invoke(IPC.appVersion) as Promise<string>
 }
 
 contextBridge.exposeInMainWorld('workspace', api)

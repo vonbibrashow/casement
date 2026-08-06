@@ -1,10 +1,11 @@
-import { ipcMain, screen, type BrowserWindow } from 'electron'
+import { app, ipcMain, screen, type BrowserWindow } from 'electron'
 import { Panel } from './Panel'
 import { loadApp, saveApp } from './persistence'
 import { moveWindowToDisplay } from '../windowState'
 import { exportApp, importApp } from './sync'
 import { ShareServer } from '../share/ShareServer'
 import { loadRules, saveRules, runCleanup, previewCleanup } from '../privacy/cleaner'
+import { loadLicenses, openChromiumLicenses } from '../licenses'
 import { IPC } from '@shared/ipc'
 import type { AppState, PanelBounds, PrivacyRules, TabUpdate } from '@shared/types'
 import type { CommandId } from '@shared/keymap'
@@ -129,6 +130,10 @@ export class WorkspaceManager {
     // "Clear now" runs the same path as exit, but forced on regardless of the
     // master switch — the user just asked for it explicitly.
     ipcMain.handle(IPC.privacyClearNow, (_e, rules: PrivacyRules) => runCleanup({ ...rules, enabled: true }))
+
+    ipcMain.handle(IPC.licensesGet, () => loadLicenses())
+    ipcMain.handle(IPC.licensesOpenChromium, () => openChromiumLicenses())
+    ipcMain.handle(IPC.appVersion, () => app.getVersion())
   }
 }
 

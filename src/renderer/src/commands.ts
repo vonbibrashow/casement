@@ -175,6 +175,12 @@ export function useCommands(): PaletteCommand[] {
     })
   }
   list.push({
+    id: 'about.open',
+    title: 'About & Open Source Licences',
+    subtitle: 'App',
+    run: () => useWorkspace.getState().openAbout()
+  })
+  list.push({
     id: 'privacy.manage',
     title: 'Forget on Exit…',
     subtitle: 'Privacy',

@@ -178,5 +178,52 @@ npm start          # preview the built app
 npm run typecheck  # typecheck main + renderer
 ```
 
+## Packaging
+
+```bash
+npm run dist:win
+```
+
+`dist:win` / `dist:mac` / `dist:linux` produce installers in `release/`
+(`dist` builds for the current platform). Each run typechecks, builds,
+regenerates the icon from [scripts/make-icon.mjs](scripts/make-icon.mjs), and
+regenerates the attribution manifest before packaging.
+
+Windows gives an NSIS installer and a portable exe; macOS a dmg + zip for
+arm64 and x64; Linux an AppImage and a deb. **You can only build a platform on
+that platform** — macOS signing and the dmg/AppImage tooling are OS-bound — so
+[.github/workflows/release.yml](.github/workflows/release.yml) fans the build
+out across runners on a `v*` tag.
+
+**Code signing is not configured, and unsigned builds are what you get by
+default.** Windows SmartScreen will warn on first run, and macOS Gatekeeper will
+refuse to open the app without a signed, notarised build. Signing needs
+certificates you have to buy and hold yourself:
+
+| Platform | Set |
+|---|---|
+| Windows | `WIN_CSC_LINK` (path to `.pfx`), `WIN_CSC_KEY_PASSWORD` |
+| macOS | `CSC_LINK`, `CSC_KEY_PASSWORD`, then `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` and flip `notarize: true` in `electron-builder.yml` |
+
+The CI workflow reads these from repository secrets and simply produces unsigned
+artifacts when they're absent.
+
+## Open-source attribution
+
+Chromium ships under BSD-3-Clause and the npm dependencies under MIT/ISC; all of
+them require their notices to travel with a binary. `npm run licenses` walks the
+production dependency tree and writes `build/licenses.json` (currently 36
+packages, every one with its full licence text), which is packaged into
+`resources/` and shown by **About & Open Source Licences** in the command
+palette. Electron's own `LICENSE.electron.txt` and `LICENSES.chromium.html` ship
+beside the executable and the About screen opens them.
+
+That screen also carries the required disclaimer: this is a Chromium-based
+browser, **not** Google Chrome, and is not affiliated with or endorsed by
+Google. If you rebrand, keep that notice and don't use Google's marks. Note also
+that Widevine DRM, Safe Browsing and Chrome Sync are *not* part of open-source
+Chromium — each needs its own agreement — and shipping the H.264/AAC codecs
+commercially may require an AVC patent licence.
+
 The workspace is autosaved to `workspace.json` in Electron's `userData` directory and
 restored on next launch.

@@ -10,6 +10,7 @@ import { PanelDragLayer } from './components/PanelDragLayer'
 import { PluginsModal } from './components/PluginsModal'
 import { ShareModal } from './components/ShareModal'
 import { PrivacyModal } from './components/PrivacyModal'
+import { AboutModal } from './components/AboutModal'
 import { pluginHost } from './plugins/host'
 
 // Guard against React StrictMode's double-invoked effects seeding two workspaces.
@@ -64,6 +65,7 @@ export function App(): JSX.Element {
           <PluginsModal />
           <ShareModal />
           <PrivacyModal />
+          <AboutModal />
         </div>
       </div>
       <PanelDragLayer />

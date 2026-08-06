@@ -5,9 +5,17 @@ node_modules/
 
 # Build output
 dist/
-build/
 out/
 .next/
+
+# Packaged installers
+release/
+release-v2/
+
+# build/ holds generated resources (icon.png, licenses.json) plus one source
+# file the packager and CI both need, so that one is kept.
+build/*
+!build/entitlements.mac.plist
 
 # Environment / secrets
 .env
