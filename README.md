@@ -208,6 +208,21 @@ certificates you have to buy and hold yourself:
 The CI workflow reads these from repository secrets and simply produces unsigned
 artifacts when they're absent.
 
+## Updates
+
+Casement bundles Chromium, which receives security fixes constantly, so an
+update path is a safety requirement rather than a convenience. Updates are
+served from **GitHub Releases** — free for a public repo, no server to run.
+
+Installed builds check quietly on launch and every six hours, download in the
+background, and wait for the user to hit **Restart & install** in the About
+screen (there's also a **Check now** button). In a dev build the check reports
+that it only runs in an installed build, rather than failing.
+
+To publish an update: bump `version` in `package.json`, build, and attach the
+artifacts to a GitHub release tagged `v<version>`. Set `publish.owner`/`repo` in
+`electron-builder.yml` to your repo — CI does this automatically on a `v*` tag.
+
 ## Open-source attribution
 
 Chromium ships under BSD-3-Clause and the npm dependencies under MIT/ISC; all of

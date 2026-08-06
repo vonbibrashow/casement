@@ -73,5 +73,12 @@ linux:
       Name: Casement
       Categories: Network;WebBrowser;
 
-# Auto-update is not configured; there is no update server yet.
-publish: null
+# Updates are served from GitHub Releases — free for a public repo, and the
+# only piece needed for users to receive Chromium security fixes. Set `owner`
+# to your GitHub account; publishing a release with the built artifacts is
+# what makes an update visible to installed copies.
+publish:
+  provider: github
+  owner: vonbibrashow
+  repo: casement
+  releaseType: release

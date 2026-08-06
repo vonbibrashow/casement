@@ -4,6 +4,7 @@ import { WorkspaceManager } from './workspace/WorkspaceManager'
 import { loadWindowState, trackWindowState } from './windowState'
 import { loadRules, runCleanup } from './privacy/cleaner'
 import { migrateUserData } from './migrate'
+import { initUpdater, scheduleBackgroundCheck } from './updater'
 
 // No native menu: our own keymap owns Ctrl+R / Ctrl+W etc. so they act on the
 // active tab/panel instead of reloading or closing the chrome window.
@@ -29,6 +30,8 @@ function createWindow(): void {
   // Own the panels for this window.
   new WorkspaceManager(win)
   trackWindowState(win)
+  initUpdater(win)
+  scheduleBackgroundCheck()
 
   // Open normal target=_blank links from the chrome UI itself externally.
   win.webContents.setWindowOpenHandler(({ url }) => {

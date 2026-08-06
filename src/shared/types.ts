@@ -97,6 +97,16 @@ export interface TabUpdate {
 
 export const DEFAULT_URL = 'https://www.google.com'
 
+// --- updates -----------------------------------------------------------------
+
+export interface UpdateStatus {
+  state: 'idle' | 'checking' | 'current' | 'downloading' | 'ready' | 'error' | 'unsupported'
+  /** Version found, or the running version when already current. */
+  version: string | null
+  message: string | null
+  percent: number
+}
+
 // --- third-party attribution -------------------------------------------------
 
 export interface LicensePackage {

@@ -6,6 +6,7 @@ import { exportApp, importApp } from './sync'
 import { ShareServer } from '../share/ShareServer'
 import { loadRules, saveRules, runCleanup, previewCleanup } from '../privacy/cleaner'
 import { loadLicenses, openChromiumLicenses } from '../licenses'
+import { checkForUpdates, getUpdateStatus, installUpdate } from '../updater'
 import { IPC } from '@shared/ipc'
 import type { AppState, PanelBounds, PrivacyRules, TabUpdate } from '@shared/types'
 import type { CommandId } from '@shared/keymap'
@@ -134,6 +135,10 @@ export class WorkspaceManager {
     ipcMain.handle(IPC.licensesGet, () => loadLicenses())
     ipcMain.handle(IPC.licensesOpenChromium, () => openChromiumLicenses())
     ipcMain.handle(IPC.appVersion, () => app.getVersion())
+
+    ipcMain.handle(IPC.updateCheck, () => checkForUpdates())
+    ipcMain.handle(IPC.updateInstall, () => installUpdate())
+    ipcMain.handle(IPC.updateGet, () => getUpdateStatus())
   }
 }
 

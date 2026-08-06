@@ -8,7 +8,8 @@ import type {
   PrivacyPreview,
   PrivacyRules,
   ShareInfo,
-  TabUpdate
+  TabUpdate,
+  UpdateStatus
 } from '@shared/types'
 import type { CommandId } from '@shared/keymap'
 
@@ -73,7 +74,16 @@ const api: WorkspaceApi = {
 
   getLicenses: () => ipcRenderer.invoke(IPC.licensesGet) as Promise<LicenseManifest | null>,
   openChromiumLicenses: () => ipcRenderer.invoke(IPC.licensesOpenChromium) as Promise<boolean>,
-  getAppVersion: () => ipcRenderer.invoke(IPC.appVersion) as Promise<string>
+  getAppVersion: () => ipcRenderer.invoke(IPC.appVersion) as Promise<string>,
+
+  checkForUpdates: () => ipcRenderer.invoke(IPC.updateCheck) as Promise<boolean>,
+  installUpdate: () => ipcRenderer.invoke(IPC.updateInstall),
+  getUpdateStatus: () => ipcRenderer.invoke(IPC.updateGet) as Promise<UpdateStatus>,
+  onUpdateStatus: (cb: (status: UpdateStatus) => void) => {
+    const listener = (_e: unknown, status: UpdateStatus): void => cb(status)
+    ipcRenderer.on(IPC.updateStatus, listener)
+    return () => ipcRenderer.removeListener(IPC.updateStatus, listener)
+  }
 }
 
 contextBridge.exposeInMainWorld('workspace', api)

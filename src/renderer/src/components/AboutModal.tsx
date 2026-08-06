@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { LicenseManifest } from '@shared/types'
+import type { LicenseManifest, UpdateStatus } from '@shared/types'
 import { useWorkspace } from '../store/workspaceStore'
 import { panelIds } from '../layout/tree'
 
@@ -20,10 +20,13 @@ function ModalInner(): JSX.Element {
   const [query, setQuery] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [chromiumMissing, setChromiumMissing] = useState(false)
+  const [update, setUpdate] = useState<UpdateStatus | null>(null)
 
   useEffect(() => {
     void window.workspace.getLicenses().then(setManifest)
     void window.workspace.getAppVersion().then(setVersion)
+    void window.workspace.getUpdateStatus().then(setUpdate)
+    return window.workspace.onUpdateStatus(setUpdate)
   }, [])
 
   useEffect(() => {
@@ -76,6 +79,38 @@ function ModalInner(): JSX.Element {
               <path d="M6 6l8 8M14 6l-8 8" strokeLinecap="round" />
             </svg>
           </button>
+        </div>
+
+        {/* Updates carry Chromium security fixes, so they're surfaced up front. */}
+        <div className="flex items-center gap-3 border-b border-surface-border px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <div className="text-xs text-slate-200">Updates</div>
+            <div className="text-[11px] text-slate-500">
+              {update?.state === 'checking' && 'Checking…'}
+              {update?.state === 'current' && 'You’re on the latest version.'}
+              {update?.state === 'downloading' && `Downloading ${update.version ?? ''} — ${update.percent}%`}
+              {update?.state === 'ready' && `Version ${update.version} is ready to install.`}
+              {update?.state === 'error' && (update.message ?? 'Update check failed.')}
+              {update?.state === 'unsupported' && 'Only available in an installed build.'}
+              {(!update || update.state === 'idle') && 'Checked automatically in the background.'}
+            </div>
+          </div>
+          {update?.state === 'ready' ? (
+            <button
+              onClick={() => void window.workspace.installUpdate()}
+              className="shrink-0 rounded-md bg-accent/90 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-accent"
+            >
+              Restart &amp; install
+            </button>
+          ) : (
+            <button
+              onClick={() => void window.workspace.checkForUpdates()}
+              disabled={update?.state === 'checking' || update?.state === 'downloading'}
+              className="shrink-0 rounded-md bg-surface-raised px-2.5 py-1.5 text-xs text-slate-200 hover:bg-surface-border disabled:opacity-40"
+            >
+              Check now
+            </button>
+          )}
         </div>
 
         {/* Required disclaimer: this is Chromium, not Google Chrome. */}

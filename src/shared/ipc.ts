@@ -10,7 +10,8 @@ import type {
   PrivacyPreview,
   PrivacyRules,
   ShareInfo,
-  TabUpdate
+  TabUpdate,
+  UpdateStatus
 } from './types'
 import type { CommandId } from './keymap'
 
@@ -54,6 +55,10 @@ export const IPC = {
   licensesGet: 'licenses:get',
   licensesOpenChromium: 'licenses:open-chromium',
   appVersion: 'app:version',
+  updateCheck: 'update:check',
+  updateInstall: 'update:install',
+  updateGet: 'update:get',
+  updateStatus: 'update:status',
   // main → renderer (send)
   tabUpdate: 'tab:update',
   shortcut: 'shortcut',
@@ -126,6 +131,12 @@ export interface WorkspaceApi {
   /** Opens Chromium's bundled licence file in the system viewer. */
   openChromiumLicenses(): Promise<boolean>
   getAppVersion(): Promise<string>
+
+  // --- updates ---
+  checkForUpdates(): Promise<boolean>
+  installUpdate(): Promise<void>
+  getUpdateStatus(): Promise<UpdateStatus>
+  onUpdateStatus(cb: (status: UpdateStatus) => void): () => void
 }
 
 declare global {
