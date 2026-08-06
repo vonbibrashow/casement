@@ -1,7 +1,8 @@
 {
-  "name": "multibrowser",
+  "name": "casement",
+  "productName": "Casement",
   "version": "0.1.0",
-  "description": "Workspace Browser — a Chromium workspace where panels, not tabs, are first-class.",
+  "description": "Casement — a Chromium workspace where panels, not tabs, are first-class.",
   "main": "./out/main/index.js",
   "author": "vonbibrashow",
   "license": "MIT",

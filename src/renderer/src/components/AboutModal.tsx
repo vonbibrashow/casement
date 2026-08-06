@@ -64,7 +64,7 @@ function ModalInner(): JSX.Element {
               </div>
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-slate-100">Workspace Browser</h2>
+              <h2 className="text-sm font-semibold text-slate-100">Casement</h2>
               <p className="text-xs text-slate-500">
                 Version {version || '—'}
                 {manifest?.runtime.electron && ` · Electron ${manifest.runtime.electron}`}

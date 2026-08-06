@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { WorkspaceManager } from './workspace/WorkspaceManager'
 import { loadWindowState, trackWindowState } from './windowState'
 import { loadRules, runCleanup } from './privacy/cleaner'
+import { migrateUserData } from './migrate'
 
 // No native menu: our own keymap owns Ctrl+R / Ctrl+W etc. so they act on the
 // active tab/panel instead of reloading or closing the chrome window.
@@ -15,7 +16,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#141519',
-    title: 'Workspace Browser',
+    title: 'Casement',
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
@@ -44,6 +45,9 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // Must run before any session or saved state is touched.
+  const migratedFrom = migrateUserData()
+  if (migratedFrom) console.log(`[casement] migrated profile from "${migratedFrom}"`)
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

@@ -1,4 +1,4 @@
-# Workspace Browser (multibrowser)
+# Casement
 
 A Chromium-based **workspace browser** where the primary object is **panels, not tabs**.
 A single window holds many fully independent browser panels side by side — built for

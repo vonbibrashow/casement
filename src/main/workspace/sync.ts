@@ -11,7 +11,7 @@ import { parseAppJson } from './persistence'
 export async function exportApp(win: BrowserWindow, state: AppState): Promise<boolean> {
   const { canceled, filePath } = await dialog.showSaveDialog(win, {
     title: 'Export Workspaces',
-    defaultPath: 'multibrowser-workspaces.json',
+    defaultPath: 'casement-workspaces.json',
     filters: [{ name: 'Workspace Sync', extensions: ['json'] }]
   })
   if (canceled || !filePath) return false

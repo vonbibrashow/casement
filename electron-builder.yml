@@ -1,5 +1,5 @@
-appId: com.workspacebrowser.app
-productName: Workspace Browser
+appId: com.casement.browser
+productName: Casement
 copyright: Copyright © 2026
 
 directories:
@@ -40,7 +40,7 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: Workspace Browser
+  shortcutName: Casement
 
 portable:
   artifactName: ${productName}-${version}-${arch}-portable.${ext}
@@ -70,7 +70,7 @@ linux:
   synopsis: A Chromium workspace where panels, not tabs, are first-class
   desktop:
     entry:
-      Name: Workspace Browser
+      Name: Casement
       Categories: Network;WebBrowser;
 
 # Auto-update is not configured; there is no update server yet.
