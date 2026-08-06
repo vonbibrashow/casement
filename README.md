@@ -83,6 +83,10 @@ Safety model:
   a waiting room — no frames are sent and no input accepted until you admit them.
   So a leaked or forwarded link is not, by itself, access. (Can be switched off
   per share for instant joins.)
+- Admitting someone admits *them*, not their connection: a page refresh or a
+  dropped signal resumes silently instead of asking you again. Disconnecting a
+  guest revokes that, so they cannot reconnect their way back in, and all
+  credentials die when the share ends.
 - Links carry a 128-bit token and are compared in constant time; a wrong or
   missing token gets a 404 and the WebSocket upgrade is refused.
 - One click stops the share; you can disconnect individual guests, or flip the

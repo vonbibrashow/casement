@@ -13,6 +13,8 @@ interface Guest {
   socket: WebSocket
   address: string
   connectedAt: number
+  /** Credential this guest presents to resume after a refresh. */
+  key: string
 }
 
 interface Waiting {
@@ -53,6 +55,13 @@ export class ShareSession {
 
   private guests = new Map<string, Guest>()
   private waiting = new Map<string, Waiting>()
+  /**
+   * Guests the host has already admitted. Approval belongs to the person, not
+   * the socket, so a page refresh or a dropped connection resumes silently
+   * instead of asking the host again. Cleared when the guest is disconnected
+   * or the share ends.
+   */
+  private admittedKeys = new Set<string>()
   private target: WebContents | null = null
   private streaming = false
   /** Viewport size of the last frame — the basis for mapping guest clicks. */
@@ -156,8 +165,14 @@ export class ShareSession {
    * parked in the waiting room — no frames are sent and no input is accepted
    * until the host admits it.
    */
-  addConnection(socket: WebSocket, address: string): void {
+  addConnection(socket: WebSocket, address: string, guestKey?: string): void {
     const id = randomBytes(6).toString('hex')
+    // Returning guest with a still-valid credential — resume without pestering
+    // the host. Covers page refresh and reconnects after a network blip.
+    if (guestKey && this.admittedKeys.has(guestKey)) {
+      this.admitSocket(id, socket, address, guestKey)
+      return
+    }
     if (!this.requireApproval) {
       this.admitSocket(id, socket, address)
       return
@@ -179,13 +194,16 @@ export class ShareSession {
     this.onChange()
   }
 
-  private admitSocket(id: string, socket: WebSocket, address: string): void {
-    this.guests.set(id, { id, socket, address, connectedAt: Date.now() })
+  private admitSocket(id: string, socket: WebSocket, address: string, existingKey?: string): void {
+    const key = existingKey ?? randomBytes(16).toString('hex')
+    this.admittedKeys.add(key)
+    this.guests.set(id, { id, socket, address, connectedAt: Date.now(), key })
     socket.on('message', (raw) => this.handleGuestMessage(String(raw)))
     socket.on('close', () => this.removeGuest(id))
     socket.on('error', () => this.removeGuest(id))
     try {
-      socket.send(JSON.stringify({ type: 'approved' }))
+      // The guest stores this and presents it on reconnect.
+      socket.send(JSON.stringify({ type: 'approved', guestKey: key }))
     } catch {
       /* socket already gone */
     }
@@ -221,6 +239,7 @@ export class ShareSession {
     this.requireApproval = require
   }
 
+  /** Socket went away (refresh, blip). Their credential stays valid to resume. */
   removeGuest(id: string): void {
     const g = this.guests.get(id)
     if (!g) return
@@ -232,6 +251,22 @@ export class ShareSession {
     this.guests.delete(id)
     if (this.guests.size === 0) this.stopStream()
     this.onChange()
+  }
+
+  /**
+   * Host removed this guest deliberately — revoke the credential first, or the
+   * client would just reconnect straight back in.
+   */
+  kickGuest(id: string): void {
+    const g = this.guests.get(id)
+    if (!g) return
+    this.admittedKeys.delete(g.key)
+    try {
+      g.socket.send(JSON.stringify({ type: 'denied' }))
+    } catch {
+      /* already closing */
+    }
+    this.removeGuest(id)
   }
 
   private handleGuestMessage(raw: string): void {
@@ -321,6 +356,7 @@ export class ShareSession {
     }
     this.guests.clear()
     this.waiting.clear()
+    this.admittedKeys.clear() // credentials must not outlive the share
     this.target = null
   }
 }

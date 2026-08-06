@@ -106,9 +106,10 @@ export class ShareServer {
         socket.destroy()
         return
       }
+      const guestKey = url.searchParams.get('guest') ?? undefined
       wss.handleUpgrade(req, socket, head, (ws) => {
         session.retarget(this.resolveTarget(session.panelId))
-        session.addConnection(ws, req.socket.remoteAddress ?? 'unknown')
+        session.addConnection(ws, req.socket.remoteAddress ?? 'unknown', guestKey)
       })
     })
 
@@ -220,7 +221,7 @@ export class ShareServer {
   }
 
   kick(panelId: string, clientId: string): void {
-    this.sessions.get(panelId)?.removeGuest(clientId)
+    this.sessions.get(panelId)?.kickGuest(clientId)
   }
 
   approve(panelId: string, requestId: string): void {

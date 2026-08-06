@@ -75,9 +75,19 @@ export function clientPage(token: string): string {
     gspin.style.display = spinning ? 'block' : 'none';
   }
 
+  // Credential proving the host already admitted us, so a refresh or a dropped
+  // connection resumes instead of queueing for approval again.
+  var KEY_ID = 'mb-guest-' + TOKEN;
+  function loadKey() { try { return localStorage.getItem(KEY_ID) || ''; } catch (e) { return ''; } }
+  function saveKey(k) { try { localStorage.setItem(KEY_ID, k); } catch (e) {} }
+  function clearKey() { try { localStorage.removeItem(KEY_ID); } catch (e) {} }
+
   function connect() {
     var proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    ws = new WebSocket(proto + '://' + location.host + '/ws?token=' + encodeURIComponent(TOKEN));
+    var q = '/ws?token=' + encodeURIComponent(TOKEN);
+    var k = loadKey();
+    if (k) q += '&guest=' + encodeURIComponent(k);
+    ws = new WebSocket(proto + '://' + location.host + q);
     ws.onopen = function () { dot.className = 'on'; };
     ws.onclose = function () {
       dot.className = 'off';
@@ -95,9 +105,11 @@ export function clientPage(token: string): string {
         showGate('Waiting for the host…', 'The host has been asked to let you in. Nothing is shared until they approve.', true);
       } else if (m.type === 'approved') {
         admitted = true;
+        if (m.guestKey) saveKey(m.guestKey);
         gate.style.display = 'none';
       } else if (m.type === 'denied') {
         denied = true;
+        clearKey(); // revoked by the host — don't try to resume with it
         showGate('Request declined', 'The host did not admit you to this session.', false);
       } else if (m.type === 'meta') {
         title.textContent = m.title || m.url || 'Shared panel';
@@ -105,6 +117,7 @@ export function clientPage(token: string): string {
         ro.style.display = control || !admitted ? 'none' : 'flex';
       } else if (m.type === 'ended') {
         denied = true;
+        clearKey(); // share is over; the credential is dead server-side too
         showGate('Sharing ended', 'The host stopped sharing this panel.', false);
         ws.close();
       }
