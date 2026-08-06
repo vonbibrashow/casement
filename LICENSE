@@ -1,0 +1,34 @@
+Casement
+Copyright (c) 2026 vonbibrashow. All rights reserved.
+
+Casement is free to download and use, for personal or commercial purposes,
+at no cost.
+
+All other rights are reserved. Without prior written permission you may not
+redistribute, sell, sublicense, or publish modified versions of this software
+or its source code.
+
+This software is provided "as is", without warranty of any kind, express or
+implied, including but not limited to the warranties of merchantability,
+fitness for a particular purpose and noninfringement. In no event shall the
+authors or copyright holders be liable for any claim, damages or other
+liability arising from, out of, or in connection with the software or the use
+or other dealings in the software.
+
+--------------------------------------------------------------------------
+
+These terms cover Casement's own source code only. Casement bundles Electron,
+Chromium and other third-party open-source components, each governed by its
+own licence. Those licences are reproduced in the application under
+"About & Open Source Licences", and nothing above limits the rights they grant
+you in those components.
+
+Casement is built on Chromium. It is not Google Chrome, and is not affiliated
+with or endorsed by Google.
+
+--------------------------------------------------------------------------
+
+NOTE: this is a deliberately conservative placeholder chosen to keep options
+open before the first public release — you can always give rights away later,
+but you cannot take them back once granted. If you intend to sell Casement, or
+to open-source it, replace this file with terms reviewed for your situation.

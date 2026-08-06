@@ -1,26 +1,20 @@
-# macOS and Linux artifacts can't be produced from a Windows box (code signing
-# and the dmg/AppImage tooling are platform-bound), so builds fan out across
-# runners. Triggered manually or by pushing a v* tag.
-name: Build installers
+# Windows only for now. macOS builds are pointless without an Apple Developer
+# certificate (Gatekeeper refuses to open unsigned apps on recent macOS), and
+# Linux is untested — the mac/linux jobs below are ready to switch on once
+# there's a certificate to sign with.
+name: Release
 
 on:
   workflow_dispatch:
   push:
     tags: ['v*']
 
+permissions:
+  contents: write # needed to create the GitHub Release the updater reads
+
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            script: dist:win
-          - os: macos-latest
-            script: dist:mac
-          - os: ubuntu-latest
-            script: dist:linux
-    runs-on: ${{ matrix.os }}
+  windows:
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,25 +22,38 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run ${{ matrix.script }}
+
+      # Typecheck, compile, regenerate the icon and the licence manifest.
+      # electron-builder only packages what this produces.
+      - run: npm run prepackage
+
+      # On a tag, publish straight to the GitHub Release so installed copies
+      # see the update. Otherwise just build the artifacts.
+      - name: Build and publish
+        run: npx electron-builder --win --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
         env:
-          # Signing/notarisation only happen when these secrets exist; without
-          # them the build still succeeds and produces unsigned artifacts.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signing happens only if these secrets exist; without them the build
+          # still succeeds and produces unsigned artifacts.
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: actions/upload-artifact@v4
         with:
-          name: installers-${{ matrix.os }}
-          path: |
-            release/*.exe
-            release/*.dmg
-            release/*.zip
-            release/*.AppImage
-            release/*.deb
-          if-no-files-found: warn
+          name: casement-windows
+          path: release/*.exe
+          if-no-files-found: error
+# macos:
+#   runs-on: macos-latest
+#   steps:
+#     - uses: actions/checkout@v4
+#     - uses: actions/setup-node@v4
+#       with: { node-version: 22, cache: npm }
+#     - run: npm ci
+#     - run: npm run dist:mac
+#       env:
+#         CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+#         CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+#         APPLE_ID: ${{ secrets.APPLE_ID }}
+#         APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+#         APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

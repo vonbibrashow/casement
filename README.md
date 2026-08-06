@@ -6,6 +6,25 @@ developers, traders, and researchers who need many live web apps visible at once
 
 Feels like VS Code / Obsidian / Figma, not like Chrome.
 
+## Install (Windows)
+
+Grab the latest `Casement-<version>-x64-setup.exe` from the releases page, or
+the `-portable.exe` if you'd rather not install anything.
+
+**Windows will warn you on first run.** The build isn't code-signed yet — a
+signing certificate costs a few hundred dollars a year and Casement is free, so
+that's deferred until it's earning its keep. SmartScreen shows *"Windows
+protected your PC"*; click **More info → Run anyway**.
+
+That warning means "this publisher hasn't paid for a certificate", not "this
+software is known to be harmful" — but you only have my word for that, so if
+you'd rather not take it, build from source: `npm ci && npm run dist:win`
+produces the same installer.
+
+macOS and Linux builds aren't published yet. macOS specifically needs a signed,
+notarised build to open at all on recent versions, so it's waiting on the same
+certificate.
+
 ## Status
 
 **Phase 1 MVP — done**
