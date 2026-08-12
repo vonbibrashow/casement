@@ -74,9 +74,11 @@ export class Tab {
       }
     })
 
-    // Locked workspace: keep navigation docked inside this tab.
+    // Locked workspace: keep navigation docked inside this tab. Failures here
+    // must be swallowed like any other navigation — a popup to a dead host
+    // would otherwise reject unhandled in the main process.
     wc.setWindowOpenHandler(({ url }) => {
-      void wc.loadURL(url)
+      this.load(url)
       return { action: 'deny' }
     })
   }
