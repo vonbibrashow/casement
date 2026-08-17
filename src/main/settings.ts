@@ -10,6 +10,7 @@ import type { AppSettings, SearchEngine } from '@shared/types'
 export const DEFAULT_SETTINGS: AppSettings = {
   newTabUrl: 'https://www.google.com',
   searchEngine: 'google',
+  autoHideChrome: false,
   historyEnabled: true,
   historyRetentionDays: 90,
   sleepAfterMinutes: 5,

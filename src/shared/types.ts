@@ -115,6 +115,8 @@ export interface AppSettings {
   newTabUrl: string
   /** Where a non-URL typed into the address bar gets searched. */
   searchEngine: SearchEngine
+  /** Collapse each panel's tabs + address bar until the top edge is hovered. */
+  autoHideChrome: boolean
   /** Record visited pages. Off means nothing is written to history at all. */
   historyEnabled: boolean
   /** Days to keep history for; 0 keeps it until manually cleared. */

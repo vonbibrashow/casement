@@ -54,6 +54,28 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
   const [compact, setCompact] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
+  // Auto-hide: the chrome collapses to a thin strip until the top edge is
+  // hovered. It can't reveal on hovering the page itself — the native
+  // WebContentsView paints above the DOM and swallows those pointer events —
+  // so the strip stays live as the trigger surface.
+  const autoHide = useWorkspace((s) => s.settings?.autoHideChrome ?? false)
+  const [revealed, setRevealed] = useState(false)
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const showChrome = (): void => {
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+    setRevealed(true)
+  }
+  /** Small delay so crossing a gap on the way to a button doesn't collapse it. */
+  const scheduleHide = (): void => {
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+    hideTimer.current = setTimeout(() => setRevealed(false), 350)
+  }
+  useEffect(() => () => void (hideTimer.current && clearTimeout(hideTimer.current)), [])
+
+  // Never collapse out from under an open menu or a focused address bar.
+  const chromeVisible = !autoHide || revealed || menuOpen
+
   useLayoutEffect(() => {
     const el = rootRef.current
     if (!el) return
@@ -82,8 +104,13 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
   useEffect(() => {
     const onFocusUrl = (e: Event): void => {
       if ((e as CustomEvent<string>).detail === id) {
-        inputRef.current?.focus()
-        inputRef.current?.select()
+        // Ctrl+L must work even when the bar is hidden — reveal, then focus
+        // once it has rendered.
+        showChrome()
+        requestAnimationFrame(() => {
+          inputRef.current?.focus()
+          inputRef.current?.select()
+        })
       }
     }
     window.addEventListener('mb:focus-url', onFocusUrl)
@@ -152,8 +179,24 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
         focused ? 'border-accent/60' : 'border-surface-border'
       }`}
     >
+      {/* Collapsed trigger. Stays in the DOM above the native view so it can
+          still receive the hover that brings the chrome back. */}
+      {!chromeVisible && (
+        <div
+          onPointerEnter={showChrome}
+          title="Show tabs and address bar"
+          className="group flex h-1.5 shrink-0 cursor-pointer items-center justify-center bg-surface-border/60 hover:bg-accent/70"
+        >
+          <span className="h-[2px] w-8 rounded-full bg-slate-600 group-hover:bg-white/70" />
+        </div>
+      )}
+
       {/* One chrome row: nav + address bar + tabs + panel controls. */}
-      <div className="flex h-9 shrink-0 items-center gap-1 border-b border-surface-border px-1.5">
+      <div
+        onPointerEnter={autoHide ? showChrome : undefined}
+        onPointerLeave={autoHide ? scheduleHide : undefined}
+        className={`flex h-9 shrink-0 items-center gap-1 border-b border-surface-border px-1.5 ${chromeVisible ? '' : 'hidden'}`}
+      >
         {canClose && (
           <button
             onPointerDown={startPanelDrag}
@@ -192,7 +235,11 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
             ref={inputRef}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            onFocus={(e) => e.target.select()}
+            onFocus={(e) => {
+              showChrome()
+              e.target.select()
+            }}
+            onBlur={autoHide ? scheduleHide : undefined}
             spellCheck={false}
             placeholder="Search or enter address"
             className="w-full select-text rounded-md bg-surface-sunken px-2.5 py-1 text-xs text-slate-200 outline-none ring-accent/50 placeholder:text-slate-600 focus:ring-1"

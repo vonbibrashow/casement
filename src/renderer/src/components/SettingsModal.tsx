@@ -83,6 +83,12 @@ function ModalInner(): JSX.Element {
                   <option value="bing">Bing</option>
                 </select>
               </Row>
+              <Row
+                label="Auto-hide tabs and address bar"
+                hint="Each panel collapses its chrome to a thin strip; hover the panel's top edge — or press Ctrl L — to bring it back."
+              >
+                <Toggle on={settings.autoHideChrome} onClick={() => void update({ autoHideChrome: !settings.autoHideChrome })} />
+              </Row>
             </Section>
 
             <Section title="History">
