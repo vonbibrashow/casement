@@ -55,3 +55,23 @@ OV builds reputation over time). Add `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD`
 as repository secrets and the existing workflow signs automatically — no code
 changes. An Apple Developer account ($99/yr) unlocks the commented-out macOS
 job in the same workflow.
+
+## If a release ends up duplicated
+
+electron-builder can race while uploading several artifacts and create two
+release records for the same tag — GitHub then serves one of them as "latest",
+and if that's the one without `latest.yml`, updates silently stop working.
+
+The workflow now creates the release before building to avoid this. If it ever
+recurs, check with:
+
+```bash
+gh api repos/<owner>/casement/releases -q '.[] | "id=\(.id) tag=\(.tag_name) assets=\(.assets|length)"'
+```
+
+Move any stray assets onto the release holding the installers, delete the empty
+duplicate, then confirm the feed is publicly readable:
+
+```bash
+curl -sL https://github.com/<owner>/casement/releases/latest/download/latest.yml
+```

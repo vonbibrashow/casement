@@ -27,6 +27,17 @@ jobs:
       # electron-builder only packages what this produces.
       - run: npm run prepackage
 
+      # Create the release up front so electron-builder uploads into an
+      # existing one. Left to itself it races while publishing several
+      # artifacts and can create two release records for the same tag — one of
+      # which GitHub then serves as "latest" with the installers missing,
+      # breaking both the download page and the updater.
+      - name: Ensure the release exists
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: gh release view "${{ github.ref_name }}" --repo "$GITHUB_REPOSITORY" || gh release create "${{ github.ref_name }}" --repo "$GITHUB_REPOSITORY" --title "${{ github.ref_name }}" --notes "Release ${{ github.ref_name }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       # On a tag, publish straight to the GitHub Release so installed copies
       # see the update. Otherwise just build the artifacts.
       - name: Build and publish
