@@ -11,6 +11,7 @@ import type {
   PanelBounds,
   PrivacyPreview,
   PrivacyRules,
+  SaveResult,
   ShareInfo,
   TabUpdate,
   UpdateStatus
@@ -97,7 +98,7 @@ export interface WorkspaceApi {
   stop(panelId: string, tabId: string): Promise<void>
   toggleDevTools(panelId: string, tabId: string): Promise<void>
   loadApp(): Promise<AppState | null>
-  saveApp(state: AppState): Promise<void>
+  saveApp(state: AppState): Promise<SaveResult>
   /** Export all workspaces to a user-chosen file. Resolves true if saved. */
   exportApp(state: AppState): Promise<boolean>
   /** Import workspaces from a user-chosen file (migrated if older format). */

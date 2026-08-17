@@ -2,6 +2,67 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useWorkspace } from '../store/workspaceStore'
 import { countPanels } from '../layout/tree'
 
+/** "just now" / "2m ago" / "1h ago" — enough precision for a save clock. */
+function agoLabel(ts: number, now: number): string {
+  const secs = Math.max(0, Math.round((now - ts) / 1000))
+  if (secs < 45) return 'just now'
+  const mins = Math.round(secs / 60)
+  if (mins < 60) return `${mins}m ago`
+  return `${Math.round(mins / 60)}h ago`
+}
+
+/**
+ * Reports the actual state of the workspace autosave. Deliberately capable of
+ * showing failure — a status light that can only ever be green is worse than
+ * none, because a silently failed write would look like a healthy one.
+ */
+function SaveIndicator(): JSX.Element {
+  const state = useWorkspace((s) => s.saveState)
+  const lastSavedAt = useWorkspace((s) => s.lastSavedAt)
+  const error = useWorkspace((s) => s.saveError)
+  const [now, setNow] = useState(() => Date.now())
+
+  // Keep the relative time honest without re-rendering constantly.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 20_000)
+    return () => clearInterval(t)
+  }, [])
+
+  if (state === 'error') {
+    return (
+      <span
+        className="flex items-center gap-1 text-amber-300"
+        title={`Your workspace could not be saved: ${error ?? 'unknown error'}`}
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+        save failed
+      </span>
+    )
+  }
+  if (state === 'saving') {
+    return (
+      <span className="flex items-center gap-1" title="Writing your workspace to disk">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+        saving…
+      </span>
+    )
+  }
+  if (state === 'saved' && lastSavedAt) {
+    return (
+      <span className="flex items-center gap-1" title="Panels, tabs and layout are written to disk automatically">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80" />
+        saved {agoLabel(lastSavedAt, now)}
+      </span>
+    )
+  }
+  return (
+    <span className="flex items-center gap-1 text-slate-600" title="Changes are saved automatically">
+      <span className="h-1.5 w-1.5 rounded-full bg-slate-600" />
+      autosave on
+    </span>
+  )
+}
+
 /** Global chrome: active-workspace name (rename/delete) + layout presets. */
 export function Toolbar(): JSX.Element {
   const workspaces = useWorkspace((s) => s.workspaces)
@@ -113,10 +174,7 @@ export function Toolbar(): JSX.Element {
         <span title="Loaded tabs (others are asleep to save memory)">
           {liveTabs} live{asleepTabs > 0 && <span className="text-slate-600"> · {asleepTabs} 💤</span>}
         </span>
-        <span className="flex items-center gap-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80" />
-          autosaved
-        </span>
+        <SaveIndicator />
       </div>
     </header>
   )

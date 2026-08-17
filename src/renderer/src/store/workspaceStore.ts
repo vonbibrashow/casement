@@ -95,6 +95,11 @@ interface WorkspaceStore {
   settings: AppSettings | null
   updateSettings(next: Partial<AppSettings>): Promise<void>
 
+  /** Real state of the autosave, so the indicator can report a failure. */
+  saveState: 'idle' | 'saving' | 'saved' | 'error'
+  lastSavedAt: number | null
+  saveError: string | null
+
   // Panel sharing (remote guests).
   shares: ShareInfo[]
   sharePanelId: string | null
@@ -267,7 +272,14 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
 
   function scheduleSave(): void {
     if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = setTimeout(() => void window.workspace.saveApp(buildAppState()), 400)
+    // Debounced: a burst of edits collapses into one write.
+    saveTimer = setTimeout(() => {
+      set({ saveState: 'saving' })
+      void window.workspace.saveApp(buildAppState()).then((res) => {
+        if (res?.ok) set({ saveState: 'saved', lastSavedAt: Date.now(), saveError: null })
+        else set({ saveState: 'error', saveError: res?.error ?? 'Save failed' })
+      })
+    }, 400)
   }
 
   function updatePanel(panelId: string, next: PanelState): void {
@@ -308,6 +320,9 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     aboutOpen: false,
     settingsOpen: false,
     historyOpen: false,
+    saveState: 'idle',
+    lastSavedAt: null,
+    saveError: null,
     draggingPanelId: null,
     dropTarget: null,
     dragPos: null,

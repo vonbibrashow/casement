@@ -9,6 +9,7 @@ import type {
   PanelBounds,
   PrivacyPreview,
   PrivacyRules,
+  SaveResult,
   ShareInfo,
   TabUpdate,
   UpdateStatus
@@ -34,7 +35,7 @@ const api: WorkspaceApi = {
   stop: (panelId, tabId) => ipcRenderer.invoke(IPC.tabStop, panelId, tabId),
   toggleDevTools: (panelId, tabId) => ipcRenderer.invoke(IPC.tabDevtools, panelId, tabId),
   loadApp: () => ipcRenderer.invoke(IPC.appLoad) as Promise<AppState | null>,
-  saveApp: (state: AppState) => ipcRenderer.invoke(IPC.appSave, state),
+  saveApp: (state: AppState) => ipcRenderer.invoke(IPC.appSave, state) as Promise<SaveResult>,
   exportApp: (state: AppState) => ipcRenderer.invoke(IPC.appExport, state) as Promise<boolean>,
   importApp: () => ipcRenderer.invoke(IPC.appImport) as Promise<AppState | null>,
   onTabUpdate: (cb: (update: TabUpdate) => void) => {

@@ -110,7 +110,16 @@ export class WorkspaceManager {
     ipcMain.handle(IPC.tabDevtools, (_e, panelId: string, tabId: string) => this.get(panelId)?.toggleDevTools(tabId))
 
     ipcMain.handle(IPC.appLoad, () => loadApp())
-    ipcMain.handle(IPC.appSave, (_e, state: AppState) => saveApp(state))
+    ipcMain.handle(IPC.appSave, async (_e, state: AppState) => {
+      try {
+        await saveApp(state)
+        return { ok: true }
+      } catch (err) {
+        // Disk full, permissions, a locked file — the renderer surfaces this
+        // rather than the indicator staying reassuringly green.
+        return { ok: false, error: err instanceof Error ? err.message : 'Save failed' }
+      }
+    })
     ipcMain.handle(IPC.appExport, (_e, state: AppState) => exportApp(this.window, state))
     ipcMain.handle(IPC.appImport, () => importApp(this.window))
 

@@ -76,6 +76,15 @@ export interface AppState {
   activeWorkspaceId: string
 }
 
+/**
+ * Outcome of a workspace write. Returned as a value rather than thrown so the
+ * UI can report a failed save instead of silently claiming everything is fine.
+ */
+export interface SaveResult {
+  ok: boolean
+  error?: string
+}
+
 /** Pixel rectangle (CSS px === DIP at renderer zoom 1) for positioning a view. */
 export interface PanelBounds {
   x: number
