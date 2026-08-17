@@ -5,6 +5,7 @@ import { loadWindowState, trackWindowState } from './windowState'
 import { loadRules, runCleanup } from './privacy/cleaner'
 import { migrateUserData } from './migrate'
 import { initUpdater, scheduleBackgroundCheck } from './updater'
+import { flushHistory, pruneExpired } from './history'
 
 // No native menu: our own keymap owns Ctrl+R / Ctrl+W etc. so they act on the
 // active tab/panel instead of reloading or closing the chrome window.
@@ -68,7 +69,11 @@ let cleanupDone = false
 app.on('before-quit', (event) => {
   if (cleanupDone) return
   event.preventDefault()
-  const cleanup = loadRules().then((rules) => runCleanup(rules))
+  const cleanup = loadRules()
+    .then((rules) => runCleanup(rules))
+    // Drop expired history and flush pending writes before the process ends.
+    .then(() => pruneExpired())
+    .then(() => flushHistory())
   // A watchdog so a stalled session call can never trap the app in "quitting".
   const watchdog = new Promise((resolve) => setTimeout(resolve, CLEANUP_TIMEOUT_MS))
   void Promise.race([cleanup, watchdog])

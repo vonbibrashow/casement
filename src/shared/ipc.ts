@@ -3,8 +3,10 @@
 // and renderer can never drift out of sync.
 
 import type {
+  AppSettings,
   AppState,
   CleanupReport,
+  HistoryEntry,
   LicenseManifest,
   PanelBounds,
   PrivacyPreview,
@@ -52,6 +54,12 @@ export const IPC = {
   privacySet: 'privacy:set',
   privacyClearNow: 'privacy:clear-now',
   privacyPreview: 'privacy:preview',
+  settingsGet: 'settings:get',
+  settingsSet: 'settings:set',
+  historyList: 'history:list',
+  historyClear: 'history:clear',
+  historyRemove: 'history:remove',
+  historyCount: 'history:count',
   licensesGet: 'licenses:get',
   licensesOpenChromium: 'licenses:open-chromium',
   appVersion: 'app:version',
@@ -125,6 +133,17 @@ export interface WorkspaceApi {
   previewPrivacy(rules: PrivacyRules): Promise<PrivacyPreview>
   /** Run the clear immediately instead of waiting for exit. */
   clearNow(rules: PrivacyRules): Promise<CleanupReport>
+
+  // --- settings ---
+  getSettings(): Promise<AppSettings>
+  /** Persists a partial update and resolves with the merged result. */
+  setSettings(next: Partial<AppSettings>): Promise<AppSettings>
+
+  // --- browsing history ---
+  listHistory(query: string, limit?: number): Promise<HistoryEntry[]>
+  clearHistory(): Promise<void>
+  removeHistoryEntry(id: string): Promise<void>
+  historyCount(): Promise<number>
 
   // --- attribution ---
   getLicenses(): Promise<LicenseManifest | null>

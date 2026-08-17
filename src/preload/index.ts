@@ -1,8 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, type WorkspaceApi } from '@shared/ipc'
 import type {
+  AppSettings,
   AppState,
   CleanupReport,
+  HistoryEntry,
   LicenseManifest,
   PanelBounds,
   PrivacyPreview,
@@ -71,6 +73,13 @@ const api: WorkspaceApi = {
   setPrivacyRules: (rules: PrivacyRules) => ipcRenderer.invoke(IPC.privacySet, rules),
   previewPrivacy: (rules: PrivacyRules) => ipcRenderer.invoke(IPC.privacyPreview, rules) as Promise<PrivacyPreview>,
   clearNow: (rules: PrivacyRules) => ipcRenderer.invoke(IPC.privacyClearNow, rules) as Promise<CleanupReport>,
+
+  getSettings: () => ipcRenderer.invoke(IPC.settingsGet) as Promise<AppSettings>,
+  setSettings: (next: Partial<AppSettings>) => ipcRenderer.invoke(IPC.settingsSet, next) as Promise<AppSettings>,
+  listHistory: (query: string, limit?: number) => ipcRenderer.invoke(IPC.historyList, query, limit) as Promise<HistoryEntry[]>,
+  clearHistory: () => ipcRenderer.invoke(IPC.historyClear),
+  removeHistoryEntry: (id: string) => ipcRenderer.invoke(IPC.historyRemove, id),
+  historyCount: () => ipcRenderer.invoke(IPC.historyCount) as Promise<number>,
 
   getLicenses: () => ipcRenderer.invoke(IPC.licensesGet) as Promise<LicenseManifest | null>,
   openChromiumLicenses: () => ipcRenderer.invoke(IPC.licensesOpenChromium) as Promise<boolean>,

@@ -7,8 +7,10 @@ import { ShareServer } from '../share/ShareServer'
 import { loadRules, saveRules, runCleanup, previewCleanup } from '../privacy/cleaner'
 import { loadLicenses, openChromiumLicenses } from '../licenses'
 import { checkForUpdates, getUpdateStatus, installUpdate } from '../updater'
+import { getSettings, setSettings, searchUrlFor } from '../settings'
+import { clearHistory, historyCount, listHistory, removeEntry } from '../history'
 import { IPC } from '@shared/ipc'
-import type { AppState, PanelBounds, PrivacyRules, TabUpdate } from '@shared/types'
+import type { AppSettings, AppState, PanelBounds, PrivacyRules, TabUpdate } from '@shared/types'
 import type { CommandId } from '@shared/keymap'
 
 /**
@@ -132,6 +134,13 @@ export class WorkspaceManager {
     // master switch — the user just asked for it explicitly.
     ipcMain.handle(IPC.privacyClearNow, (_e, rules: PrivacyRules) => runCleanup({ ...rules, enabled: true }))
 
+    ipcMain.handle(IPC.settingsGet, () => getSettings())
+    ipcMain.handle(IPC.settingsSet, (_e, next: Partial<AppSettings>) => setSettings(next))
+    ipcMain.handle(IPC.historyList, (_e, query: string, limit?: number) => listHistory(query, limit))
+    ipcMain.handle(IPC.historyClear, () => clearHistory())
+    ipcMain.handle(IPC.historyRemove, (_e, id: string) => removeEntry(id))
+    ipcMain.handle(IPC.historyCount, () => historyCount())
+
     ipcMain.handle(IPC.licensesGet, () => loadLicenses())
     ipcMain.handle(IPC.licensesOpenChromium, () => openChromiumLicenses())
     ipcMain.handle(IPC.appVersion, () => app.getVersion())
@@ -152,5 +161,5 @@ export function normalizeUrl(input: string): string {
   if (/^[a-z]+:\/\//i.test(value) || value.startsWith('about:')) return value
   const looksLikeDomain = /^[^\s]+\.[^\s]{2,}(\/.*)?$/.test(value) && !value.includes(' ')
   if (looksLikeDomain) return `https://${value}`
-  return `https://www.google.com/search?q=${encodeURIComponent(value)}`
+  return searchUrlFor(value)
 }

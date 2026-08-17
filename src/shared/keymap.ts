@@ -20,6 +20,8 @@ export type CommandId =
   | 'layout.preset1'
   | 'layout.preset2'
   | 'layout.preset4'
+  | 'app.settings'
+  | 'app.history'
   | 'window.nextDisplay'
   | 'window.prevDisplay'
 
@@ -46,6 +48,8 @@ export const KEYMAP: Binding[] = [
   { combo: 'mod+alt+1', command: 'layout.preset1' },
   { combo: 'mod+alt+2', command: 'layout.preset2' },
   { combo: 'mod+alt+4', command: 'layout.preset4' },
+  { combo: 'mod+comma', command: 'app.settings' },
+  { combo: 'mod+h', command: 'app.history' },
   { combo: 'mod+shift+right', command: 'window.nextDisplay' },
   { combo: 'mod+shift+left', command: 'window.prevDisplay' }
 ]
@@ -76,6 +80,8 @@ function normalizeCode(code: string): string {
   switch (code) {
     case 'Backslash':
       return 'backslash'
+    case 'Comma':
+      return 'comma'
     case 'Tab':
       return 'tab'
     case 'ArrowLeft':

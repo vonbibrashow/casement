@@ -1,0 +1,194 @@
+import { useEffect, useState } from 'react'
+import type { SearchEngine } from '@shared/types'
+import { useWorkspace } from '../store/workspaceStore'
+import { panelIds } from '../layout/tree'
+
+/** Consolidated preferences. Privacy, plugins and licences keep their own
+ *  screens; this links out to them rather than duplicating their UI. */
+export function SettingsModal(): JSX.Element | null {
+  const open = useWorkspace((s) => s.settingsOpen)
+  return open ? <ModalInner /> : null
+}
+
+function ModalInner(): JSX.Element {
+  const close = useWorkspace((s) => s.closeSettings)
+  const settings = useWorkspace((s) => s.settings)
+  const update = useWorkspace((s) => s.updateSettings)
+  const openPrivacy = useWorkspace((s) => s.openPrivacy)
+  const openPlugins = useWorkspace((s) => s.openPlugins)
+  const openAbout = useWorkspace((s) => s.openAbout)
+  const openHistory = useWorkspace((s) => s.openHistory)
+  const [count, setCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    void window.workspace.historyCount().then(setCount)
+  }, [])
+
+  useEffect(() => {
+    void window.workspace.focusChrome()
+    const ids = panelIds(useWorkspace.getState().layout)
+    ids.forEach((id) => void window.workspace.setPanelVisible(id, false))
+    return () => panelIds(useWorkspace.getState().layout).forEach((id) => void window.workspace.setPanelVisible(id, true))
+  }, [])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') close()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [close])
+
+  const jump = (fn: () => void): void => {
+    close()
+    fn()
+  }
+
+  return (
+    <div className="absolute inset-0 z-50 flex items-start justify-center bg-black/50 pt-[6vh] backdrop-blur-sm" onPointerDown={close}>
+      <div
+        className="flex max-h-[86vh] w-[min(620px,94vw)] flex-col overflow-hidden rounded-xl border border-surface-border bg-surface shadow-2xl"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-surface-border px-4 py-3">
+          <h2 className="text-sm font-semibold text-slate-100">Settings</h2>
+          <button onClick={close} className="rounded p-1 text-slate-500 hover:bg-surface-raised hover:text-slate-200">
+            <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.6}>
+              <path d="M6 6l8 8M14 6l-8 8" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        {!settings ? (
+          <div className="px-4 py-10 text-center text-xs text-slate-500">Loading…</div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <Section title="Browsing">
+              <Row label="New tab page" hint="Opened when a new tab or panel is created.">
+                <input
+                  defaultValue={settings.newTabUrl}
+                  onBlur={(e) => void update({ newTabUrl: e.target.value.trim() })}
+                  spellCheck={false}
+                  className="w-56 rounded-md bg-surface-sunken px-2 py-1 text-[11px] text-slate-200 outline-none ring-accent/50 focus:ring-1"
+                />
+              </Row>
+              <Row label="Search engine" hint="Used when what you type isn't a URL.">
+                <select
+                  value={settings.searchEngine}
+                  onChange={(e) => void update({ searchEngine: e.target.value as SearchEngine })}
+                  className="w-56 rounded-md bg-surface-sunken px-2 py-1 text-[11px] text-slate-200 outline-none ring-accent/50 focus:ring-1"
+                >
+                  <option value="google">Google</option>
+                  <option value="duckduckgo">DuckDuckGo</option>
+                  <option value="bing">Bing</option>
+                </select>
+              </Row>
+            </Section>
+
+            <Section title="History">
+              <Row label="Record browsing history" hint="Cookies and open tabs are saved regardless of this.">
+                <Toggle on={settings.historyEnabled} onClick={() => void update({ historyEnabled: !settings.historyEnabled })} />
+              </Row>
+              <Row label="Keep history for" hint="0 keeps it until you clear it manually.">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    defaultValue={settings.historyRetentionDays}
+                    onBlur={(e) => void update({ historyRetentionDays: Number(e.target.value) || 0 })}
+                    className="w-20 rounded-md bg-surface-sunken px-2 py-1 text-[11px] text-slate-200 outline-none ring-accent/50 focus:ring-1"
+                  />
+                  <span className="text-[11px] text-slate-500">days</span>
+                </div>
+              </Row>
+              <Row label="Saved pages" hint={count === null ? 'Counting…' : `${count} entries recorded.`}>
+                <button
+                  onClick={() => jump(openHistory)}
+                  className="rounded-md bg-surface-raised px-2.5 py-1 text-xs text-slate-200 hover:bg-surface-border"
+                >
+                  View history
+                </button>
+              </Row>
+            </Section>
+
+            <Section title="Performance">
+              <Row label="Sleep idle tabs after" hint="Background tabs unload to free memory, and reload when clicked.">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    defaultValue={settings.sleepAfterMinutes}
+                    onBlur={(e) => void update({ sleepAfterMinutes: Number(e.target.value) || 1 })}
+                    className="w-20 rounded-md bg-surface-sunken px-2 py-1 text-[11px] text-slate-200 outline-none ring-accent/50 focus:ring-1"
+                  />
+                  <span className="text-[11px] text-slate-500">minutes</span>
+                </div>
+              </Row>
+              <Row label="Maximum loaded tabs" hint="Above this, the least recently used are put to sleep.">
+                <input
+                  type="number"
+                  min={1}
+                  defaultValue={settings.maxLiveTabs}
+                  onBlur={(e) => void update({ maxLiveTabs: Number(e.target.value) || 1 })}
+                  className="w-20 rounded-md bg-surface-sunken px-2 py-1 text-[11px] text-slate-200 outline-none ring-accent/50 focus:ring-1"
+                />
+              </Row>
+            </Section>
+
+            <Section title="More">
+              <LinkRow label="Forget on exit" hint="Wipe chosen sites when you quit." onClick={() => jump(openPrivacy)} />
+              <LinkRow label="Plugins" hint="Enable or disable bundled extensions." onClick={() => jump(openPlugins)} />
+              <LinkRow label="About & licences" hint="Version, updates and open-source notices." onClick={() => jump(openAbout)} />
+            </Section>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }): JSX.Element {
+  return (
+    <div className="border-b border-surface-border last:border-b-0">
+      <div className="px-4 pt-3 text-[10px] uppercase tracking-wide text-slate-500">{title}</div>
+      <div className="px-4 py-2">{children}</div>
+    </div>
+  )
+}
+
+function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }): JSX.Element {
+  return (
+    <div className="flex items-start gap-4 py-2">
+      <div className="min-w-0 flex-1">
+        <div className="text-xs text-slate-200">{label}</div>
+        {hint && <div className="mt-0.5 text-[11px] leading-relaxed text-slate-500">{hint}</div>}
+      </div>
+      <div className="shrink-0 pt-0.5">{children}</div>
+    </div>
+  )
+}
+
+function LinkRow({ label, hint, onClick }: { label: string; hint: string; onClick: () => void }): JSX.Element {
+  return (
+    <button onClick={onClick} className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-surface-raised">
+      <div className="min-w-0 flex-1">
+        <div className="text-xs text-slate-200">{label}</div>
+        <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div>
+      </div>
+      <span className="shrink-0 text-slate-600">›</span>
+    </button>
+  )
+}
+
+function Toggle({ on, onClick }: { on: boolean; onClick: () => void }): JSX.Element {
+  return (
+    <button
+      role="switch"
+      aria-checked={on}
+      onClick={onClick}
+      className={`flex h-5 w-9 items-center rounded-full px-0.5 transition ${on ? 'bg-accent' : 'bg-surface-border'}`}
+    >
+      <span className={`h-4 w-4 rounded-full bg-white transition ${on ? 'translate-x-4' : ''}`} />
+    </button>
+  )
+}

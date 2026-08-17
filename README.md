@@ -56,6 +56,28 @@ certificate.
 
 Persistence is versioned (v1 → v2 → v3) with automatic migration on load.
 
+### Settings
+
+`Ctrl ,` or **Settings…** in the palette. New tab page, search engine
+(Google / DuckDuckGo / Bing), history recording and retention, and the
+performance tuning that used to be hardcoded — how long a background tab idles
+before sleeping, and how many tabs stay loaded at once. Changes apply live, no
+restart. Forget-on-exit, plugins and licences keep their own screens and are
+linked from here.
+
+### History
+
+`Ctrl H` or **History…** in the palette. Panels each keep their own Chromium
+back/forward stack, but that dies with the tab — this is the durable record,
+searchable by title or URL and grouped by day. Click an entry to open it in the
+focused panel; remove entries individually or clear the lot.
+
+Repeat visits collapse into one entry with a counter rather than filling the
+list. Only `http(s)` pages are recorded — never `file://` or internal pages.
+Recording can be switched off entirely in Settings, and entries past the
+retention window are dropped at quit. Forget-on-exit prunes history too, so a
+site you've asked to forget leaves nothing behind in it.
+
 ### Forget on exit
 
 Wipe chosen sites when you quit while leaving everything else signed in — so a
@@ -150,6 +172,7 @@ Template. Toggle them in **Manage Plugins…** (command palette).
 | `Ctrl L` | Focus address bar | | `Ctrl Alt 1/2/4` | Layout preset |
 | `Ctrl R` | Reload | | `Alt ←` / `Alt →` | Back / Forward |
 | `Ctrl Shift →` | Window → next display | | `Ctrl Shift ←` | Window → prev display |
+| `Ctrl ,` | Settings | | `Ctrl H` | History |
 
 Not built yet (Phase 3): sleeping/performance modes, templates, multi-monitor,
 plugins, cloud sync.

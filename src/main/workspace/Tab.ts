@@ -1,6 +1,7 @@
 import { WebContentsView } from 'electron'
 import type { PanelBounds, TabUpdate } from '@shared/types'
 import { comboFromCode, resolveCommand, type CommandId } from '@shared/keymap'
+import { recordVisit, updateTitle } from '../history'
 
 export interface TabCallbacks {
   update(u: TabUpdate): void
@@ -56,9 +57,16 @@ export class Tab {
       this.emit({ isLoading: false })
       pushNav()
     })
-    wc.on('did-navigate', pushNav)
+    wc.on('did-navigate', () => {
+      pushNav()
+      void recordVisit(wc.getURL(), wc.getTitle())
+    })
     wc.on('did-navigate-in-page', pushNav)
-    wc.on('page-title-updated', (_e, title) => this.emit({ title }))
+    wc.on('page-title-updated', (_e, title) => {
+      this.emit({ title })
+      // Titles usually arrive after the navigation, so backfill the entry.
+      void updateTitle(wc.getURL(), title)
+    })
     wc.on('focus', () => this.cb.focus())
 
     // Intercept app shortcuts before the page sees them, so they work while a

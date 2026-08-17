@@ -77,6 +77,12 @@ export function runCommand(id: CommandId, panelIdArg?: string): void {
     case 'layout.preset4':
       s.applyPreset(4)
       break
+    case 'app.settings':
+      s.openSettings()
+      break
+    case 'app.history':
+      s.openHistory()
+      break
     case 'window.nextDisplay':
       void window.workspace.moveToDisplay('next')
       break
@@ -174,6 +180,20 @@ export function useCommands(): PaletteCommand[] {
       run: () => void useWorkspace.getState().stopShare(sh.panelId)
     })
   }
+  list.push({
+    id: 'settings.open',
+    title: 'Settings…',
+    subtitle: 'App',
+    keys: displayCombo('app.settings') || undefined,
+    run: () => useWorkspace.getState().openSettings()
+  })
+  list.push({
+    id: 'history.open',
+    title: 'History…',
+    subtitle: 'App',
+    keys: displayCombo('app.history') || undefined,
+    run: () => useWorkspace.getState().openHistory()
+  })
   list.push({
     id: 'about.open',
     title: 'About & Open Source Licences',

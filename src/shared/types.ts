@@ -97,6 +97,37 @@ export interface TabUpdate {
 
 export const DEFAULT_URL = 'https://www.google.com'
 
+// --- settings ----------------------------------------------------------------
+
+export type SearchEngine = 'google' | 'duckduckgo' | 'bing'
+
+export interface AppSettings {
+  /** Page a new tab opens on. */
+  newTabUrl: string
+  /** Where a non-URL typed into the address bar gets searched. */
+  searchEngine: SearchEngine
+  /** Record visited pages. Off means nothing is written to history at all. */
+  historyEnabled: boolean
+  /** Days to keep history for; 0 keeps it until manually cleared. */
+  historyRetentionDays: number
+  /** Idle minutes before a background tab is unloaded to free memory. */
+  sleepAfterMinutes: number
+  /** Cap on simultaneously loaded tabs; the least-recently-used sleep first. */
+  maxLiveTabs: number
+}
+
+// --- browsing history --------------------------------------------------------
+
+export interface HistoryEntry {
+  id: string
+  url: string
+  title: string
+  /** Epoch ms of the most recent visit. */
+  visitedAt: number
+  /** How many times this URL has been visited. */
+  visits: number
+}
+
 // --- updates -----------------------------------------------------------------
 
 export interface UpdateStatus {
@@ -143,6 +174,7 @@ export interface CleanupReport {
   hosts: string[]
   cookiesRemoved: number
   tabsRemoved: number
+  historyRemoved: number
 }
 
 /** Dry run: what the current rules would drop vs keep, from saved history. */

@@ -5,6 +5,7 @@ import type { AppState, PanelState, PrivacyPreview, PrivacyRules } from '@shared
 import { DEFAULT_RULES, hostOf, partitionHosts } from './rules'
 import { shouldForget } from './rules'
 import { loadApp, saveApp } from '../workspace/persistence'
+import { pruneWhere } from '../history'
 
 const rulesPath = (): string => join(app.getPath('userData'), 'privacy.json')
 
@@ -60,7 +61,7 @@ function partitionsOf(state: AppState | null): string[] {
  * Everything not matched is left untouched.
  */
 export async function runCleanup(rules: PrivacyRules): Promise<CleanupReport> {
-  const report: CleanupReport = { hosts: [], cookiesRemoved: 0, tabsRemoved: 0 }
+  const report: CleanupReport = { hosts: [], cookiesRemoved: 0, tabsRemoved: 0, historyRemoved: 0 }
   if (!rules.enabled) return report
 
   const state = await loadApp()
@@ -105,7 +106,18 @@ export async function runCleanup(rules: PrivacyRules): Promise<CleanupReport> {
     }
   }
 
-  // History: drop saved tabs pointing at forgotten hosts.
+  // Browsing history: drop recorded visits to forgotten hosts.
+  if (rules.clearHistory) {
+    const dropped = await pruneWhere((url) => {
+      const host = hostOf(url)
+      if (!shouldForget(host, rules)) return false
+      forgotten.add(host)
+      return true
+    })
+    report.historyRemoved = dropped
+  }
+
+  // Saved tabs pointing at forgotten hosts.
   if (rules.clearHistory && state) {
     let changed = false
     for (const ws of state.workspaces) {

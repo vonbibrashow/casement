@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import {
   DEFAULT_URL,
+  type AppSettings,
   type AppState,
   type LayoutNode,
   type PanelState,
@@ -41,8 +42,17 @@ const activeSent = new Map<string, string>()
 // WebContentsView is destroyed to free memory) and reloaded on activation.
 const lastActive = new Map<string, number>() // tabId → last time it was the active tab
 let perfTimer: ReturnType<typeof setInterval> | null = null
-const SLEEP_AFTER_MS = 5 * 60 * 1000 // sleep a background tab idle this long
-const MAX_LIVE_TABS = 16 // hard cap on simultaneously-loaded tabs (LRU sleeps the rest)
+// Tunable from Settings; these are the fallbacks until settings load.
+let sleepAfterMs = 5 * 60 * 1000 // sleep a background tab idle this long
+let maxLiveTabs = 16 // cap on simultaneously-loaded tabs (LRU sleeps the rest)
+let newTabUrl = DEFAULT_URL
+
+/** Applied whenever settings change, so tuning takes effect without a restart. */
+export function applyPerformanceSettings(s: { sleepAfterMinutes: number; maxLiveTabs: number; newTabUrl: string }): void {
+  sleepAfterMs = Math.max(1, s.sleepAfterMinutes) * 60 * 1000
+  maxLiveTabs = Math.max(1, s.maxLiveTabs)
+  newTabUrl = s.newTabUrl || DEFAULT_URL
+}
 const PERF_TICK_MS = 30_000
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -74,6 +84,16 @@ interface WorkspaceStore {
   aboutOpen: boolean
   openAbout(): void
   closeAbout(): void
+  settingsOpen: boolean
+  openSettings(): void
+  closeSettings(): void
+  historyOpen: boolean
+  openHistory(): void
+  closeHistory(): void
+
+  /** User preferences, loaded from main at startup. */
+  settings: AppSettings | null
+  updateSettings(next: Partial<AppSettings>): Promise<void>
 
   // Panel sharing (remote guests).
   shares: ShareInfo[]
@@ -139,10 +159,10 @@ interface WorkspaceStore {
   applyTabUpdate(update: TabUpdate): void
 }
 
-function freshTab(url = DEFAULT_URL): TabState {
+function freshTab(url?: string): TabState {
   const id = newTabId()
   lastActive.set(id, Date.now())
-  return { id, url, title: 'New Tab', canGoBack: false, canGoForward: false, isLoading: false, status: 'live' }
+  return { id, url: url ?? newTabUrl, title: 'New Tab', canGoBack: false, canGoForward: false, isLoading: false, status: 'live' }
 }
 function freshPanel(id: string): PanelState {
   const tab = freshTab()
@@ -286,6 +306,8 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     pluginsOpen: false,
     privacyOpen: false,
     aboutOpen: false,
+    settingsOpen: false,
+    historyOpen: false,
     draggingPanelId: null,
     dropTarget: null,
     dragPos: null,
@@ -298,6 +320,17 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     closePrivacy: () => set({ privacyOpen: false }),
     openAbout: () => set({ aboutOpen: true }),
     closeAbout: () => set({ aboutOpen: false }),
+    openSettings: () => set({ settingsOpen: true }),
+    closeSettings: () => set({ settingsOpen: false }),
+    openHistory: () => set({ historyOpen: true }),
+    closeHistory: () => set({ historyOpen: false }),
+
+    settings: null,
+    async updateSettings(next) {
+      const merged = await window.workspace.setSettings(next)
+      applyPerformanceSettings(merged)
+      set({ settings: merged })
+    },
 
     shares: [],
     sharePanelId: null,
@@ -367,6 +400,12 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     },
 
     async init() {
+      // Settings first: they decide the new-tab page and the performance budget
+      // that the restore below immediately depends on.
+      const settings = await window.workspace.getSettings()
+      applyPerformanceSettings(settings)
+      set({ settings })
+
       const appState = await window.workspace.loadApp()
       window.workspace.onTabUpdate((u) => get().applyTabUpdate(u))
       window.workspace.onShareUpdate((shares) => set({ shares }))
@@ -546,7 +585,7 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
         next[pid] = {
           ...p,
           tabs: p.tabs.map((t) => {
-            if (t.id !== p.activeTabId && t.status === 'paused' && now - (lastActive.get(t.id) ?? 0) > SLEEP_AFTER_MS) {
+            if (t.id !== p.activeTabId && t.status === 'paused' && now - (lastActive.get(t.id) ?? 0) > sleepAfterMs) {
               changed = true
               return { ...t, status: 'sleeping' as const }
             }
@@ -564,7 +603,7 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
         }
       }
       const activeCount = Object.keys(next).length // one live (active) tab per panel
-      let over = activeCount + loaded.length - MAX_LIVE_TABS
+      let over = activeCount + loaded.length - maxLiveTabs
       if (over > 0) {
         for (const e of loaded.sort((a, b) => a.la - b.la)) {
           if (over <= 0) break
