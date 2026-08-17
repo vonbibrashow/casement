@@ -69,8 +69,8 @@ export function Toolbar(): JSX.Element {
   const activeId = useWorkspace((s) => s.activeWorkspaceId)
   const renameWorkspace = useWorkspace((s) => s.renameWorkspace)
   const deleteWorkspace = useWorkspace((s) => s.deleteWorkspace)
-  const applyPreset = useWorkspace((s) => s.applyPreset)
   const panels = useWorkspace((s) => countPanels(s.layout))
+  const autoHide = useWorkspace((s) => s.settings?.autoHideToolbar ?? false)
   // Two primitive selectors (numbers) — returning an object here would hand
   // zustand a fresh reference every render and loop forever.
   const liveTabs = useWorkspace((s) => {
@@ -91,6 +91,24 @@ export function Toolbar(): JSX.Element {
   const [draft, setDraft] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Same reveal mechanism as the panel chrome: a thin strip is the only
+  // surface left that can catch the hover, since panels expand upward into
+  // this space and their native views sit above the DOM.
+  const [revealed, setRevealed] = useState(false)
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const show = (): void => {
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+    setRevealed(true)
+  }
+  const scheduleHide = (): void => {
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+    hideTimer.current = setTimeout(() => setRevealed(false), 350)
+  }
+  useEffect(() => () => void (hideTimer.current && clearTimeout(hideTimer.current)), [])
+
+  // Renaming must not be interrupted by the bar collapsing mid-edit.
+  const visible = !autoHide || revealed || editing
+
   useEffect(() => {
     if (editing) inputRef.current?.select()
   }, [editing])
@@ -105,8 +123,24 @@ export function Toolbar(): JSX.Element {
     setEditing(false)
   }
 
+  if (!visible) {
+    return (
+      <div
+        onPointerEnter={show}
+        title="Show workspace bar"
+        className="group flex h-1.5 shrink-0 cursor-pointer items-center justify-center bg-surface-border/60 hover:bg-accent/70"
+      >
+        <span className="h-[2px] w-10 rounded-full bg-slate-600 group-hover:bg-white/70" />
+      </div>
+    )
+  }
+
   return (
-    <header className="flex h-11 shrink-0 items-center gap-3 border-b border-surface-border bg-surface px-3">
+    <header
+      onPointerEnter={autoHide ? show : undefined}
+      onPointerLeave={autoHide ? scheduleHide : undefined}
+      className="flex h-11 shrink-0 items-center gap-3 border-b border-surface-border bg-surface px-3"
+    >
       <div className="flex min-w-0 items-center gap-2">
         <span className="text-base leading-none">{active?.icon ?? '🗂️'}</span>
         {editing ? (
@@ -151,21 +185,8 @@ export function Toolbar(): JSX.Element {
         )}
       </div>
 
-      <div className="mx-1 h-5 w-px bg-surface-border" />
-
-      <div className="flex items-center gap-1">
-        <span className="pr-1 text-[11px] uppercase tracking-wide text-slate-500">Layout</span>
-        {([1, 2, 4] as const).map((n) => (
-          <button
-            key={n}
-            onClick={() => applyPreset(n)}
-            className="rounded-md px-2.5 py-1 text-xs font-medium text-slate-300 hover:bg-surface-raised hover:text-white active:scale-95"
-            title={`${n} panel${n > 1 ? 's' : ''}`}
-          >
-            {n}
-          </button>
-        ))}
-      </div>
+      {/* Layout presets live on Ctrl Alt 1/2/4 and in the command palette —
+          the buttons were spending permanent space on a rare action. */}
 
       <div className="ml-auto flex items-center gap-2.5 text-[11px] text-slate-500">
         <span>

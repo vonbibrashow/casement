@@ -117,6 +117,8 @@ export interface AppSettings {
   searchEngine: SearchEngine
   /** Collapse each panel's tabs + address bar until the top edge is hovered. */
   autoHideChrome: boolean
+  /** Collapse the workspace toolbar until the window's top edge is hovered. */
+  autoHideToolbar: boolean
   /** Record visited pages. Off means nothing is written to history at all. */
   historyEnabled: boolean
   /** Days to keep history for; 0 keeps it until manually cleared. */

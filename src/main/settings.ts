@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   newTabUrl: 'https://www.google.com',
   searchEngine: 'google',
   autoHideChrome: false,
+  autoHideToolbar: false,
   historyEnabled: true,
   historyRetentionDays: 90,
   sleepAfterMinutes: 5,

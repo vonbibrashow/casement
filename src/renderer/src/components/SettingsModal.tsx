@@ -89,6 +89,12 @@ function ModalInner(): JSX.Element {
               >
                 <Toggle on={settings.autoHideChrome} onClick={() => void update({ autoHideChrome: !settings.autoHideChrome })} />
               </Row>
+              <Row
+                label="Auto-hide workspace bar"
+                hint="Collapses the bar with the workspace name and status; hover the very top of the window to bring it back."
+              >
+                <Toggle on={settings.autoHideToolbar} onClick={() => void update({ autoHideToolbar: !settings.autoHideToolbar })} />
+              </Row>
             </Section>
 
             <Section title="History">

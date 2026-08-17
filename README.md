@@ -61,7 +61,9 @@ Persistence is versioned (v1 → v2 → v3) with automatic migration on load.
 `Ctrl ,` or **Settings…** in the palette. New tab page, search engine
 (Google / DuckDuckGo / Bing), history recording and retention, and the
 performance tuning that used to be hardcoded — how long a background tab idles
-before sleeping, and how many tabs stay loaded at once. Changes apply live, no
+before sleeping, and how many tabs stay loaded at once. Both the panel chrome
+and the workspace bar can auto-hide, collapsing to a thin strip you hover to
+bring back. Changes apply live, no
 restart. Forget-on-exit, plugins and licences keep their own screens and are
 linked from here.
 
