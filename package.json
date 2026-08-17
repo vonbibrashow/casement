@@ -1,7 +1,7 @@
 {
   "name": "casement",
   "productName": "Casement",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Casement — a Chromium workspace where panels, not tabs, are first-class.",
   "main": "./out/main/index.js",
   "author": "vonbibrashow",
