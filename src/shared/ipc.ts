@@ -17,7 +17,8 @@ import type {
   SaveResult,
   ShareInfo,
   TabUpdate,
-  UpdateStatus
+  UpdateStatus,
+  WorkspaceMeta
 } from './types'
 import type { CommandId } from './keymap'
 
@@ -66,6 +67,8 @@ export const IPC = {
   historyCount: 'history:count',
   menuPanelChrome: 'menu:panel-chrome',
   menuToolbar: 'menu:toolbar',
+  menuRail: 'menu:rail',
+  menuWorkspaces: 'menu:workspaces',
   permissionRespond: 'permission:respond',
   permissionList: 'permission:list',
   permissionForget: 'permission:forget',
@@ -161,6 +164,13 @@ export interface WorkspaceApi {
    *  chosen action id, or null if dismissed. */
   showPanelChromeMenu(pinned: boolean, canClose: boolean): Promise<string | null>
   showToolbarMenu(pinned: boolean): Promise<string | null>
+  showRailMenu(pinned: boolean): Promise<string | null>
+  /** Workspace switcher menu for the top bar; built from the live lists. */
+  showWorkspaceMenu(
+    workspaces: WorkspaceMeta[],
+    activeId: string,
+    templates: Array<{ id: string; name: string }>
+  ): Promise<string | null>
 
   // --- site permissions ---
   /** Fires when a site asks for something the user has to decide. */

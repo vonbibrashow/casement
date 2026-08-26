@@ -87,6 +87,9 @@ const api: WorkspaceApi = {
   showPanelChromeMenu: (pinned, canClose) =>
     ipcRenderer.invoke(IPC.menuPanelChrome, pinned, canClose) as Promise<string | null>,
   showToolbarMenu: (pinned) => ipcRenderer.invoke(IPC.menuToolbar, pinned) as Promise<string | null>,
+  showRailMenu: (pinned) => ipcRenderer.invoke(IPC.menuRail, pinned) as Promise<string | null>,
+  showWorkspaceMenu: (workspaces, activeId, templates) =>
+    ipcRenderer.invoke(IPC.menuWorkspaces, workspaces, activeId, templates) as Promise<string | null>,
 
   onPermissionRequest: (cb: (req: PermissionRequest) => void) => {
     const listener = (_e: unknown, req: PermissionRequest): void => cb(req)

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { GatedPermission, PermissionPolicy, SearchEngine, SitePermission } from '@shared/types'
+import type { GatedPermission, PermissionPolicy, SearchEngine, SitePermission, WorkspaceSwitcher } from '@shared/types'
 import { useWorkspace } from '../store/workspaceStore'
 import { panelIds } from '../layout/tree'
 
@@ -89,6 +89,24 @@ function ModalInner(): JSX.Element {
               >
                 <Toggle on={settings.autoHideChrome} onClick={() => void update({ autoHideChrome: !settings.autoHideChrome })} />
               </Row>
+              <Row
+                label="Workspace switcher"
+                hint="The side rail, or folded into the workspace name in the top bar — which already shows the active workspace."
+              >
+                <select
+                  value={settings.workspaceSwitcher}
+                  onChange={(e) => void update({ workspaceSwitcher: e.target.value as WorkspaceSwitcher })}
+                  className="w-28 rounded-md bg-surface-sunken px-2 py-1 text-[11px] text-slate-200 outline-none ring-accent/50 focus:ring-1"
+                >
+                  <option value="rail">Side rail</option>
+                  <option value="toolbar">Top bar</option>
+                </select>
+              </Row>
+              {settings.workspaceSwitcher === 'rail' && (
+                <Row label="Auto-hide side rail" hint="Hover the left edge of the window to bring it back.">
+                  <Toggle on={settings.autoHideRail} onClick={() => void update({ autoHideRail: !settings.autoHideRail })} />
+                </Row>
+              )}
               <Row
                 label="Auto-hide workspace bar"
                 hint="Collapses the bar with the workspace name and status; hover the very top of the window to bring it back."

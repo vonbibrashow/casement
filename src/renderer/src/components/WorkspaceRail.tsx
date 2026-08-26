@@ -1,18 +1,42 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useWorkspace } from '../store/workspaceStore'
 import { panelIds } from '../layout/tree'
 import { TEMPLATES } from '../templates'
+import { pluginHost } from '../plugins/host'
 
-/** Far-left activity rail — one icon per workspace, VS Code / Obsidian style. */
-export function WorkspaceRail(): JSX.Element {
+/**
+ * Far-left activity rail — one icon per workspace, VS Code / Obsidian style.
+ *
+ * Renders nothing when the switcher has been moved into the top bar, which
+ * already shows the active workspace and so makes this a duplicate.
+ */
+export function WorkspaceRail(): JSX.Element | null {
   const workspaces = useWorkspace((s) => s.workspaces)
   const activeId = useWorkspace((s) => s.activeWorkspaceId)
   const switchWorkspace = useWorkspace((s) => s.switchWorkspace)
   const createWorkspace = useWorkspace((s) => s.createWorkspace)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const updateSettings = useWorkspace((s) => s.updateSettings)
+  const openSettings = useWorkspace((s) => s.openSettings)
+  const inToolbar = useWorkspace((s) => (s.settings?.workspaceSwitcher ?? 'rail') === 'toolbar')
+  const autoHide = useWorkspace((s) => s.settings?.autoHideRail ?? false)
+  const pinned = useWorkspace((s) => s.settings?.railPinned ?? false)
 
-  // The menu overlaps the panel area, where native views render above the DOM —
-  // hide them while it's open so the menu is visible.
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [revealed, setRevealed] = useState(false)
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const show = (): void => {
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+    setRevealed(true)
+  }
+  const scheduleHide = (): void => {
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+    hideTimer.current = setTimeout(() => setRevealed(false), 350)
+  }
+  useEffect(() => () => void (hideTimer.current && clearTimeout(hideTimer.current)), [])
+
+  // The new-workspace menu overlaps the panel area, where native views paint
+  // above the DOM — hide them while it's open.
   useEffect(() => {
     if (!menuOpen) return
     const ids = panelIds(useWorkspace.getState().layout)
@@ -20,8 +44,43 @@ export function WorkspaceRail(): JSX.Element {
     return () => panelIds(useWorkspace.getState().layout).forEach((id) => void window.workspace.setPanelVisible(id, true))
   }, [menuOpen])
 
+  if (inToolbar) return null
+
+  const visible = !autoHide || revealed || pinned || menuOpen
+
+  /** Native right-click menu — floats above the panels' WebContentsViews. */
+  const onContextMenu = (e: React.MouseEvent): void => {
+    e.preventDefault()
+    show()
+    void window.workspace.showRailMenu(pinned).then((action) => {
+      if (action === 'toggle-pin') void updateSettings({ railPinned: !pinned })
+      else if (action === 'new-workspace') createWorkspace()
+      else if (action === 'move-to-toolbar') void updateSettings({ workspaceSwitcher: 'toolbar' })
+      else if (action === 'settings') openSettings()
+      if (autoHide) scheduleHide()
+    })
+  }
+
+  if (!visible) {
+    return (
+      <div
+        onPointerEnter={show}
+        onContextMenu={onContextMenu}
+        title="Show workspaces — right-click for options"
+        className="group flex w-1.5 shrink-0 cursor-pointer flex-col items-center justify-center border-r border-surface-border bg-surface-border/60 hover:bg-accent/70"
+      >
+        <span className="h-8 w-[2px] rounded-full bg-slate-600 group-hover:bg-white/70" />
+      </div>
+    )
+  }
+
   return (
-    <nav className="flex w-14 shrink-0 flex-col items-center gap-2 border-r border-surface-border bg-surface-sunken py-3">
+    <nav
+      onPointerEnter={autoHide ? show : undefined}
+      onPointerLeave={autoHide ? scheduleHide : undefined}
+      onContextMenu={onContextMenu}
+      className="flex w-14 shrink-0 flex-col items-center gap-2 border-r border-surface-border bg-surface-sunken py-3"
+    >
       {workspaces.map((ws) => {
         const active = ws.id === activeId
         return (
@@ -66,7 +125,7 @@ export function WorkspaceRail(): JSX.Element {
               />
               <div className="my-1 h-px bg-surface-border" />
               <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-slate-500">Templates</div>
-              {TEMPLATES.map((t) => (
+              {[...TEMPLATES, ...pluginHost.getTemplates()].map((t) => (
                 <MenuItem
                   key={t.id}
                   onClick={() => {

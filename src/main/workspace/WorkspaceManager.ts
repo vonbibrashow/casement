@@ -7,7 +7,7 @@ import { ShareServer } from '../share/ShareServer'
 import { loadRules, saveRules, runCleanup, previewCleanup } from '../privacy/cleaner'
 import { loadLicenses, openChromiumLicenses } from '../licenses'
 import { checkForUpdates, getUpdateStatus, installUpdate } from '../updater'
-import { panelChromeMenu, toolbarMenu } from '../menus'
+import { panelChromeMenu, railMenu, toolbarMenu, workspaceMenu } from '../menus'
 import {
   cancelAllPermissionPrompts,
   forgetAllSitePermissions,
@@ -173,6 +173,16 @@ export class WorkspaceManager {
       panelChromeMenu(this.window, pinned, canClose)
     )
     ipcMain.handle(IPC.menuToolbar, (_e, pinned: boolean) => toolbarMenu(this.window, pinned))
+    ipcMain.handle(IPC.menuRail, (_e, pinned: boolean) => railMenu(this.window, pinned))
+    ipcMain.handle(
+      IPC.menuWorkspaces,
+      (
+        _e,
+        workspaces: Array<{ id: string; name: string; icon: string }>,
+        activeId: string,
+        templates: Array<{ id: string; name: string }>
+      ) => workspaceMenu(this.window, workspaces, activeId, templates)
+    )
 
     ipcMain.handle(IPC.permissionList, () => listSitePermissions())
     ipcMain.handle(IPC.permissionForget, (_e, origin: string, kind: GatedPermission) => forgetSitePermission(origin, kind))

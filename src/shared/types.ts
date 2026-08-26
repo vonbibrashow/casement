@@ -116,6 +116,13 @@ export const DEFAULT_URL = 'https://www.google.com'
 export type SearchEngine = 'google' | 'duckduckgo' | 'bing'
 
 /**
+ * Where the workspace switcher lives. `toolbar` drops the side rail entirely
+ * and folds switching into the workspace name in the top bar, which already
+ * shows the active workspace.
+ */
+export type WorkspaceSwitcher = 'rail' | 'toolbar'
+
+/**
  * Default handling for a permission a site requests. `ask` prompts and
  * remembers the answer per site; the other two decide without prompting.
  */
@@ -151,6 +158,12 @@ export interface AppSettings {
   autoHideToolbar: boolean
   /** Keep the workspace bar on screen despite auto-hide (right-click to set). */
   toolbarPinned: boolean
+  /** Where workspaces are switched from: the side rail, or the top bar. */
+  workspaceSwitcher: WorkspaceSwitcher
+  /** Collapse the side rail until the window's left edge is hovered. */
+  autoHideRail: boolean
+  /** Keep the side rail on screen despite auto-hide (right-click to set). */
+  railPinned: boolean
   /** Block known tracking, analytics and ad hosts in every panel. */
   blockTrackers: boolean
   /** Upgrade plain http:// navigations to https:// where possible. */

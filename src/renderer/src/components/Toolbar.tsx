@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useWorkspace } from '../store/workspaceStore'
 import { countPanels } from '../layout/tree'
+import { TEMPLATES } from '../templates'
+import { pluginHost } from '../plugins/host'
 
 /** "just now" / "2m ago" / "1h ago" — enough precision for a save clock. */
 function agoLabel(ts: number, now: number): string {
@@ -75,6 +77,8 @@ export function Toolbar(): JSX.Element {
   const updateSettings = useWorkspace((s) => s.updateSettings)
   const createWorkspace = useWorkspace((s) => s.createWorkspace)
   const openSettings = useWorkspace((s) => s.openSettings)
+  const switchWorkspace = useWorkspace((s) => s.switchWorkspace)
+  const switcherInToolbar = useWorkspace((s) => (s.settings?.workspaceSwitcher ?? 'rail') === 'toolbar')
   // Two primitive selectors (numbers) — returning an object here would hand
   // zustand a fresh reference every render and loop forever.
   const liveTabs = useWorkspace((s) => {
@@ -113,6 +117,26 @@ export function Toolbar(): JSX.Element {
   // Renaming must not be interrupted by the bar collapsing mid-edit, and a
   // pinned bar never collapses at all.
   const visible = !autoHide || revealed || editing || pinned
+
+  /** Workspace switcher, when the rail has been folded into this bar. */
+  const openWorkspaceMenu = (): void => {
+    show()
+    const templates = [...TEMPLATES, ...pluginHost.getTemplates()].map((t) => ({ id: t.id, name: t.name }))
+    void window.workspace.showWorkspaceMenu(workspaces, activeId, templates).then((action) => {
+      if (!action) {
+        if (autoHide) scheduleHide()
+        return
+      }
+      if (action.startsWith('switch:')) switchWorkspace(action.slice('switch:'.length))
+      else if (action.startsWith('template:')) {
+        const id = action.slice('template:'.length)
+        const t = [...TEMPLATES, ...pluginHost.getTemplates()].find((x) => x.id === id)
+        if (t) createWorkspace(t)
+      } else if (action === 'new-workspace') createWorkspace()
+      else if (action === 'move-to-rail') void updateSettings({ workspaceSwitcher: 'rail' })
+      if (autoHide) scheduleHide()
+    })
+  }
 
   /** Native right-click menu — floats above the panels' WebContentsViews. */
   const onContextMenu = (e: React.MouseEvent): void => {
@@ -161,7 +185,20 @@ export function Toolbar(): JSX.Element {
       className="flex h-11 shrink-0 items-center gap-3 border-b border-surface-border bg-surface px-3"
     >
       <div className="flex min-w-0 items-center gap-2">
-        <span className="text-base leading-none">{active?.icon ?? '🗂️'}</span>
+        {switcherInToolbar ? (
+          <button
+            onClick={openWorkspaceMenu}
+            title="Switch workspace"
+            className="flex items-center gap-1 rounded-md px-1 py-0.5 hover:bg-surface-raised"
+          >
+            <span className="text-base leading-none">{active?.icon ?? '🗂️'}</span>
+            <svg viewBox="0 0 20 20" className="h-3 w-3 text-slate-500" fill="none" stroke="currentColor" strokeWidth={1.8}>
+              <path d="M6 8l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        ) : (
+          <span className="text-base leading-none">{active?.icon ?? '🗂️'}</span>
+        )}
         {editing ? (
           <form onSubmit={commitEdit}>
             <input

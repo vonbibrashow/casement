@@ -13,6 +13,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   autoHideChrome: false,
   autoHideToolbar: false,
   toolbarPinned: false,
+  workspaceSwitcher: 'rail',
+  autoHideRail: false,
+  railPinned: false,
   // Secure by default: a site has to be granted these, not merely ask.
   blockTrackers: true,
   httpsUpgrade: true,
