@@ -80,6 +80,31 @@ Recording can be switched off entirely in Settings, and entries past the
 retention window are dropped at quit. Forget-on-exit prunes history too, so a
 site you've asked to forget leaves nothing behind in it.
 
+### Security
+
+Browser-level defence, applied to every panel session. Configured under
+Settings → Security & privacy.
+
+- **Tracker blocking** — requests to known analytics, ad and pixel hosts are
+  dropped. Subdomains match, and the top-level page is never blocked, only its
+  subresources.
+- **Device permissions are refused by default** — camera, microphone, location
+  and notifications are each opt-in. USB, serial and HID access is always
+  denied. Electron grants most permission requests unless a handler says
+  otherwise, so without this a page could reach your camera silently.
+- **Navigation is scheme-limited** — a page can only send itself to `http`,
+  `https` or `about`. It cannot open `file://` to read local disk, run
+  `javascript:` against the current document, or hand off to an external
+  protocol that launches another application. Typing such a URL yourself still
+  works; the guard is on page-initiated navigation.
+- **Prefer HTTPS** — plain `http://` is retried over `https://`, falling back
+  if the site has no secure version. Loopback and private-network addresses are
+  skipped, since routers and dev servers are commonly http-only.
+
+**What this is not.** It is not antivirus and it cannot stop malware you choose
+to run, nor protect an already-compromised machine. The strongest protection a
+browser offers is a patched engine, which is what the auto-updater is for.
+
 ### Forget on exit
 
 Wipe chosen sites when you quit while leaving everything else signed in — so a

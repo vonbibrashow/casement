@@ -119,6 +119,16 @@ export interface AppSettings {
   autoHideChrome: boolean
   /** Collapse the workspace toolbar until the window's top edge is hovered. */
   autoHideToolbar: boolean
+  /** Block known tracking, analytics and ad hosts in every panel. */
+  blockTrackers: boolean
+  /** Upgrade plain http:// navigations to https:// where possible. */
+  httpsUpgrade: boolean
+  /** Sites may use the camera or microphone. Off blocks silently. */
+  allowCameraMic: boolean
+  /** Sites may read your location. */
+  allowLocation: boolean
+  /** Sites may raise desktop notifications. */
+  allowNotifications: boolean
   /** Record visited pages. Off means nothing is written to history at all. */
   historyEnabled: boolean
   /** Days to keep history for; 0 keeps it until manually cleared. */

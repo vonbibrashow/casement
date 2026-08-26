@@ -12,6 +12,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   searchEngine: 'google',
   autoHideChrome: false,
   autoHideToolbar: false,
+  // Secure by default: a site has to be granted these, not merely ask.
+  blockTrackers: true,
+  httpsUpgrade: true,
+  allowCameraMic: false,
+  allowLocation: false,
+  allowNotifications: false,
   historyEnabled: true,
   historyRetentionDays: 90,
   sleepAfterMinutes: 5,

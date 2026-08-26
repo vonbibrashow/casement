@@ -97,6 +97,38 @@ function ModalInner(): JSX.Element {
               </Row>
             </Section>
 
+            <Section title="Security &amp; privacy">
+              <Row
+                label="Block trackers and ads"
+                hint="Drops requests to known analytics, ad and pixel hosts in every panel."
+              >
+                <Toggle on={settings.blockTrackers} onClick={() => void update({ blockTrackers: !settings.blockTrackers })} />
+              </Row>
+              <Row
+                label="Prefer HTTPS"
+                hint="Retries plain http:// pages over https://, falling back if the site has no secure version. Local and private addresses are left alone."
+              >
+                <Toggle on={settings.httpsUpgrade} onClick={() => void update({ httpsUpgrade: !settings.httpsUpgrade })} />
+              </Row>
+              <Row label="Allow camera and microphone" hint="Off means sites are refused without ever prompting you.">
+                <Toggle on={settings.allowCameraMic} onClick={() => void update({ allowCameraMic: !settings.allowCameraMic })} />
+              </Row>
+              <Row label="Allow location access" hint="Off means sites cannot read where you are.">
+                <Toggle on={settings.allowLocation} onClick={() => void update({ allowLocation: !settings.allowLocation })} />
+              </Row>
+              <Row label="Allow notifications" hint="Off blocks desktop notification prompts entirely.">
+                <Toggle
+                  on={settings.allowNotifications}
+                  onClick={() => void update({ allowNotifications: !settings.allowNotifications })}
+                />
+              </Row>
+              <p className="pb-1 pt-1 text-[11px] leading-relaxed text-slate-500">
+                Access to USB, serial and HID devices is always refused, and pages cannot navigate to local files or
+                launch other applications. These are browser-level protections — they are not antivirus, and the
+                strongest defence remains keeping Casement updated.
+              </p>
+            </Section>
+
             <Section title="History">
               <Row label="Record browsing history" hint="Cookies and open tabs are saved regardless of this.">
                 <Toggle on={settings.historyEnabled} onClick={() => void update({ historyEnabled: !settings.historyEnabled })} />
