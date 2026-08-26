@@ -1,6 +1,8 @@
 import { session, type Session } from 'electron'
+import type { GatedPermission } from '@shared/types'
 import { getSettings } from '../settings'
 import { hostOf, isTracker } from './trackers'
+import { decide, decideSync } from './permissions'
 
 // Security hardening applied to every panel session.
 //
@@ -10,9 +12,6 @@ import { hostOf, isTracker } from './trackers'
 // triggering. It cannot stop malware you choose to run, and the single
 // biggest protection remains keeping Chromium patched — which is what the
 // auto-updater is for.
-
-/** Permissions a page must never get silently; each is user-controlled. */
-const GATED = new Set(['media', 'geolocation', 'notifications', 'midi', 'midiSysex', 'hid', 'serial', 'usb', 'idle-detection'])
 
 /** Harmless enough to allow without a prompt. */
 const ALLOWED = new Set(['fullscreen', 'clipboard-sanitized-write', 'pointerLock'])
@@ -51,30 +50,39 @@ export function hardenSession(partition: string): void {
   })
 
   // --- device permissions ---
-  ses.setPermissionRequestHandler((_wc, permission, callback) => {
-    callback(decidePermission(permission))
+  ses.setPermissionRequestHandler((wc, permission, callback, details) => {
+    if (ALLOWED.has(permission)) return callback(true)
+    const kind = gatedKind(permission)
+    if (!kind) return callback(false) // unknown permissions default closed
+    const url = details?.requestingUrl || wc?.getURL() || ''
+    void decide(url, kind).then(callback)
   })
-  // Synchronous checks (e.g. a page probing whether it already has access)
-  // must agree with the async handler, or sites see inconsistent state.
-  ses.setPermissionCheckHandler((_wc, permission) => decidePermission(permission))
+  // Synchronous checks (a page probing whether it already has access) can't
+  // prompt, so they report only what's already settled.
+  ses.setPermissionCheckHandler((wc, permission, requestingOrigin) => {
+    if (ALLOWED.has(permission)) return true
+    const kind = gatedKind(permission)
+    if (!kind) return false
+    return decideSync(requestingOrigin || wc?.getURL() || '', kind)
+  })
 
   // Deny the WebHID/WebSerial/WebUSB device pickers outright — there is no
   // legitimate reason for a page in this browser to reach hardware.
   ses.setDevicePermissionHandler(() => false)
 }
 
-function decidePermission(permission: string): boolean {
-  const s = getSettings()
-  if (ALLOWED.has(permission)) return true
-  if (!GATED.has(permission)) return false // unknown permissions default closed
+/** Map Chromium's permission names onto the kinds we prompt about. */
+function gatedKind(permission: string): GatedPermission | null {
   switch (permission) {
     case 'media':
-      return s.allowCameraMic
+    case 'audioCapture':
+    case 'videoCapture':
+      return 'camera-mic'
     case 'geolocation':
-      return s.allowLocation
+      return 'location'
     case 'notifications':
-      return s.allowNotifications
+      return 'notifications'
     default:
-      return false
+      return null
   }
 }

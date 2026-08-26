@@ -7,10 +7,18 @@ import { ShareServer } from '../share/ShareServer'
 import { loadRules, saveRules, runCleanup, previewCleanup } from '../privacy/cleaner'
 import { loadLicenses, openChromiumLicenses } from '../licenses'
 import { checkForUpdates, getUpdateStatus, installUpdate } from '../updater'
+import {
+  cancelAllPermissionPrompts,
+  forgetAllSitePermissions,
+  forgetSitePermission,
+  listSitePermissions,
+  resolvePermission,
+  setPromptWindow
+} from '../security/permissions'
 import { getSettings, setSettings, searchUrlFor } from '../settings'
 import { clearHistory, historyCount, listHistory, removeEntry } from '../history'
 import { IPC } from '@shared/ipc'
-import type { AppSettings, AppState, PanelBounds, PrivacyRules, TabUpdate } from '@shared/types'
+import type { AppSettings, AppState, GatedPermission, PanelBounds, PrivacyRules, TabUpdate } from '@shared/types'
 import type { CommandId } from '@shared/keymap'
 
 /**
@@ -25,7 +33,12 @@ export class WorkspaceManager {
   constructor(private window: BrowserWindow) {
     this.registerIpc()
     this.shares.onChange(() => this.emit(IPC.shareUpdate, this.shares.list()))
-    window.on('closed', () => this.disposeAll())
+    // Permission prompts are rendered by this window's chrome.
+    setPromptWindow(window)
+    window.on('closed', () => {
+      cancelAllPermissionPrompts()
+      this.disposeAll()
+    })
   }
 
   private emit(channel: string, ...args: unknown[]): void {
@@ -149,6 +162,15 @@ export class WorkspaceManager {
     ipcMain.handle(IPC.historyClear, () => clearHistory())
     ipcMain.handle(IPC.historyRemove, (_e, id: string) => removeEntry(id))
     ipcMain.handle(IPC.historyCount, () => historyCount())
+
+    ipcMain.handle(
+      IPC.permissionRespond,
+      (_e, id: string, granted: boolean, remember: boolean, origin: string, kind: GatedPermission) =>
+        resolvePermission(id, granted, remember, origin, kind)
+    )
+    ipcMain.handle(IPC.permissionList, () => listSitePermissions())
+    ipcMain.handle(IPC.permissionForget, (_e, origin: string, kind: GatedPermission) => forgetSitePermission(origin, kind))
+    ipcMain.handle(IPC.permissionForgetAll, () => forgetAllSitePermissions())
 
     ipcMain.handle(IPC.licensesGet, () => loadLicenses())
     ipcMain.handle(IPC.licensesOpenChromium, () => openChromiumLicenses())

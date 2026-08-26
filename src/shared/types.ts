@@ -110,6 +110,31 @@ export const DEFAULT_URL = 'https://www.google.com'
 
 export type SearchEngine = 'google' | 'duckduckgo' | 'bing'
 
+/**
+ * Default handling for a permission a site requests. `ask` prompts and
+ * remembers the answer per site; the other two decide without prompting.
+ */
+export type PermissionPolicy = 'ask' | 'allow' | 'block'
+
+/** The permission kinds Casement will prompt about. */
+export type GatedPermission = 'camera-mic' | 'location' | 'notifications'
+
+/** A pending request awaiting the user's answer. */
+export interface PermissionRequest {
+  id: string
+  /** Origin of the requesting page, e.g. "https://meet.google.com". */
+  origin: string
+  kind: GatedPermission
+}
+
+/** A decision the user chose to remember for a site. */
+export interface SitePermission {
+  origin: string
+  kind: GatedPermission
+  granted: boolean
+  decidedAt: number
+}
+
 export interface AppSettings {
   /** Page a new tab opens on. */
   newTabUrl: string
@@ -123,12 +148,12 @@ export interface AppSettings {
   blockTrackers: boolean
   /** Upgrade plain http:// navigations to https:// where possible. */
   httpsUpgrade: boolean
-  /** Sites may use the camera or microphone. Off blocks silently. */
-  allowCameraMic: boolean
-  /** Sites may read your location. */
-  allowLocation: boolean
-  /** Sites may raise desktop notifications. */
-  allowNotifications: boolean
+  /** What happens when a site asks for the camera or microphone. */
+  cameraMicPolicy: PermissionPolicy
+  /** What happens when a site asks for your location. */
+  locationPolicy: PermissionPolicy
+  /** What happens when a site asks to send notifications. */
+  notificationsPolicy: PermissionPolicy
   /** Record visited pages. Off means nothing is written to history at all. */
   historyEnabled: boolean
   /** Days to keep history for; 0 keeps it until manually cleared. */

@@ -88,10 +88,14 @@ Settings → Security & privacy.
 - **Tracker blocking** — requests to known analytics, ad and pixel hosts are
   dropped. Subdomains match, and the top-level page is never blocked, only its
   subresources.
-- **Device permissions are refused by default** — camera, microphone, location
-  and notifications are each opt-in. USB, serial and HID access is always
-  denied. Electron grants most permission requests unless a handler says
-  otherwise, so without this a page could reach your camera silently.
+- **Sites are asked about, one at a time** — when a page wants the camera,
+  microphone, location or notifications, Casement asks you, naming the site and
+  what it would get. Answer once and it's remembered for that site (per site
+  *and* per permission); remembered decisions are listed in Settings and can be
+  taken back individually. Each permission can also be set to always allow or
+  always block instead of asking. USB, serial and HID access is always denied.
+  Electron grants most permission requests unless a handler says otherwise, so
+  without this a page could reach your camera silently.
 - **Navigation is scheme-limited** — a page can only send itself to `http`,
   `https` or `about`. It cannot open `file://` to read local disk, run
   `javascript:` against the current document, or hand off to an external

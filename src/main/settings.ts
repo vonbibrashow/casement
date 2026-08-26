@@ -15,9 +15,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // Secure by default: a site has to be granted these, not merely ask.
   blockTrackers: true,
   httpsUpgrade: true,
-  allowCameraMic: false,
-  allowLocation: false,
-  allowNotifications: false,
+  // Ask rather than decide for the user: a blanket block means no video calls,
+  // a blanket allow is what we were trying to get away from.
+  cameraMicPolicy: 'ask',
+  locationPolicy: 'ask',
+  notificationsPolicy: 'ask',
   historyEnabled: true,
   historyRetentionDays: 90,
   sleepAfterMinutes: 5,

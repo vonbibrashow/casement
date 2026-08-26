@@ -13,6 +13,7 @@ import { PrivacyModal } from './components/PrivacyModal'
 import { AboutModal } from './components/AboutModal'
 import { SettingsModal } from './components/SettingsModal'
 import { HistoryModal } from './components/HistoryModal'
+import { PermissionPrompt } from './components/PermissionPrompt'
 import { pluginHost } from './plugins/host'
 
 // Guard against React StrictMode's double-invoked effects seeding two workspaces.
@@ -70,6 +71,9 @@ export function App(): JSX.Element {
           <AboutModal />
           <SettingsModal />
           <HistoryModal />
+          {/* Above the modals: a site's request must be answerable whatever
+              else is open. */}
+          <PermissionPrompt />
         </div>
       </div>
       <PanelDragLayer />

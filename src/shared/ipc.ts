@@ -6,8 +6,11 @@ import type {
   AppSettings,
   AppState,
   CleanupReport,
+  GatedPermission,
   HistoryEntry,
   LicenseManifest,
+  PermissionRequest,
+  SitePermission,
   PanelBounds,
   PrivacyPreview,
   PrivacyRules,
@@ -61,6 +64,10 @@ export const IPC = {
   historyClear: 'history:clear',
   historyRemove: 'history:remove',
   historyCount: 'history:count',
+  permissionRespond: 'permission:respond',
+  permissionList: 'permission:list',
+  permissionForget: 'permission:forget',
+  permissionForgetAll: 'permission:forget-all',
   licensesGet: 'licenses:get',
   licensesOpenChromium: 'licenses:open-chromium',
   appVersion: 'app:version',
@@ -72,7 +79,8 @@ export const IPC = {
   tabUpdate: 'tab:update',
   shortcut: 'shortcut',
   panelFocused: 'panel:focused',
-  shareUpdate: 'share:update'
+  shareUpdate: 'share:update',
+  permissionRequest: 'permission:request'
 } as const
 
 /** The typed bridge surface available in the renderer as `window.workspace`. */
@@ -145,6 +153,14 @@ export interface WorkspaceApi {
   clearHistory(): Promise<void>
   removeHistoryEntry(id: string): Promise<void>
   historyCount(): Promise<number>
+
+  // --- site permissions ---
+  /** Fires when a site asks for something the user has to decide. */
+  onPermissionRequest(cb: (req: PermissionRequest) => void): () => void
+  respondToPermission(id: string, granted: boolean, remember: boolean, origin: string, kind: GatedPermission): Promise<void>
+  listSitePermissions(): Promise<SitePermission[]>
+  forgetSitePermission(origin: string, kind: GatedPermission): Promise<void>
+  forgetAllSitePermissions(): Promise<void>
 
   // --- attribution ---
   getLicenses(): Promise<LicenseManifest | null>

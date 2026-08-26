@@ -7,6 +7,8 @@ import type {
   HistoryEntry,
   LicenseManifest,
   PanelBounds,
+  PermissionRequest,
+  SitePermission,
   PrivacyPreview,
   PrivacyRules,
   SaveResult,
@@ -81,6 +83,17 @@ const api: WorkspaceApi = {
   clearHistory: () => ipcRenderer.invoke(IPC.historyClear),
   removeHistoryEntry: (id: string) => ipcRenderer.invoke(IPC.historyRemove, id),
   historyCount: () => ipcRenderer.invoke(IPC.historyCount) as Promise<number>,
+
+  onPermissionRequest: (cb: (req: PermissionRequest) => void) => {
+    const listener = (_e: unknown, req: PermissionRequest): void => cb(req)
+    ipcRenderer.on(IPC.permissionRequest, listener)
+    return () => ipcRenderer.removeListener(IPC.permissionRequest, listener)
+  },
+  respondToPermission: (id, granted, remember, origin, kind) =>
+    ipcRenderer.invoke(IPC.permissionRespond, id, granted, remember, origin, kind),
+  listSitePermissions: () => ipcRenderer.invoke(IPC.permissionList) as Promise<SitePermission[]>,
+  forgetSitePermission: (origin, kind) => ipcRenderer.invoke(IPC.permissionForget, origin, kind),
+  forgetAllSitePermissions: () => ipcRenderer.invoke(IPC.permissionForgetAll),
 
   getLicenses: () => ipcRenderer.invoke(IPC.licensesGet) as Promise<LicenseManifest | null>,
   openChromiumLicenses: () => ipcRenderer.invoke(IPC.licensesOpenChromium) as Promise<boolean>,

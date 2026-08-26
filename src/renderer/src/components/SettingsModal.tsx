@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { SearchEngine } from '@shared/types'
+import type { GatedPermission, PermissionPolicy, SearchEngine, SitePermission } from '@shared/types'
 import { useWorkspace } from '../store/workspaceStore'
 import { panelIds } from '../layout/tree'
 
@@ -110,18 +110,16 @@ function ModalInner(): JSX.Element {
               >
                 <Toggle on={settings.httpsUpgrade} onClick={() => void update({ httpsUpgrade: !settings.httpsUpgrade })} />
               </Row>
-              <Row label="Allow camera and microphone" hint="Off means sites are refused without ever prompting you.">
-                <Toggle on={settings.allowCameraMic} onClick={() => void update({ allowCameraMic: !settings.allowCameraMic })} />
+              <Row label="Camera and microphone" hint="What happens when a site asks. Answers are remembered per site.">
+                <PolicySelect value={settings.cameraMicPolicy} onChange={(v) => void update({ cameraMicPolicy: v })} />
               </Row>
-              <Row label="Allow location access" hint="Off means sites cannot read where you are.">
-                <Toggle on={settings.allowLocation} onClick={() => void update({ allowLocation: !settings.allowLocation })} />
+              <Row label="Location" hint="Sites asking where you are.">
+                <PolicySelect value={settings.locationPolicy} onChange={(v) => void update({ locationPolicy: v })} />
               </Row>
-              <Row label="Allow notifications" hint="Off blocks desktop notification prompts entirely.">
-                <Toggle
-                  on={settings.allowNotifications}
-                  onClick={() => void update({ allowNotifications: !settings.allowNotifications })}
-                />
+              <Row label="Notifications" hint="Sites asking to pop up desktop messages.">
+                <PolicySelect value={settings.notificationsPolicy} onChange={(v) => void update({ notificationsPolicy: v })} />
               </Row>
+              <SitePermissions />
               <p className="pb-1 pt-1 text-[11px] leading-relaxed text-slate-500">
                 Access to USB, serial and HID devices is always refused, and pages cannot navigate to local files or
                 launch other applications. These are browser-level protections — they are not antivirus, and the
@@ -186,6 +184,67 @@ function ModalInner(): JSX.Element {
             </Section>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+function PolicySelect({ value, onChange }: { value: PermissionPolicy; onChange: (v: PermissionPolicy) => void }): JSX.Element {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as PermissionPolicy)}
+      className="w-28 rounded-md bg-surface-sunken px-2 py-1 text-[11px] text-slate-200 outline-none ring-accent/50 focus:ring-1"
+    >
+      <option value="ask">Ask</option>
+      <option value="allow">Always allow</option>
+      <option value="block">Always block</option>
+    </select>
+  )
+}
+
+const KIND_LABEL: Record<GatedPermission, string> = {
+  'camera-mic': 'camera & mic',
+  location: 'location',
+  notifications: 'notifications'
+}
+
+/** Sites whose answer was remembered, so a decision can be taken back. */
+function SitePermissions(): JSX.Element | null {
+  const [saved, setSaved] = useState<SitePermission[]>([])
+  const refresh = (): void => void window.workspace.listSitePermissions().then(setSaved)
+  useEffect(refresh, [])
+
+  if (saved.length === 0) {
+    return <p className="pb-1 pt-1 text-[11px] text-slate-600">No site decisions remembered yet.</p>
+  }
+
+  return (
+    <div className="pb-1 pt-2">
+      <div className="mb-1 flex items-center gap-2">
+        <span className="text-[10px] uppercase tracking-wide text-slate-500">Remembered sites ({saved.length})</span>
+        <button
+          onClick={() => void window.workspace.forgetAllSitePermissions().then(refresh)}
+          className="ml-auto rounded px-1.5 py-0.5 text-[10px] text-slate-500 hover:bg-red-500/20 hover:text-red-300"
+        >
+          Forget all
+        </button>
+      </div>
+      <div className="max-h-32 space-y-0.5 overflow-y-auto">
+        {saved.map((s) => (
+          <div key={`${s.origin}:${s.kind}`} className="flex items-center gap-2 text-[11px]">
+            <span className={s.granted ? 'text-emerald-400' : 'text-red-400'}>{s.granted ? 'allowed' : 'blocked'}</span>
+            <span className="min-w-0 flex-1 truncate font-mono text-slate-400">{s.origin.replace(/^https?:\/\//, '')}</span>
+            <span className="shrink-0 text-slate-600">{KIND_LABEL[s.kind]}</span>
+            <button
+              onClick={() => void window.workspace.forgetSitePermission(s.origin, s.kind).then(refresh)}
+              title="Forget, so the site is asked again"
+              className="shrink-0 rounded px-1 text-slate-600 hover:bg-surface-raised hover:text-slate-300"
+            >
+              ×
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   )
