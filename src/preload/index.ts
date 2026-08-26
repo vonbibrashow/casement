@@ -84,6 +84,10 @@ const api: WorkspaceApi = {
   removeHistoryEntry: (id: string) => ipcRenderer.invoke(IPC.historyRemove, id),
   historyCount: () => ipcRenderer.invoke(IPC.historyCount) as Promise<number>,
 
+  showPanelChromeMenu: (pinned, canClose) =>
+    ipcRenderer.invoke(IPC.menuPanelChrome, pinned, canClose) as Promise<string | null>,
+  showToolbarMenu: (pinned) => ipcRenderer.invoke(IPC.menuToolbar, pinned) as Promise<string | null>,
+
   onPermissionRequest: (cb: (req: PermissionRequest) => void) => {
     const listener = (_e: unknown, req: PermissionRequest): void => cb(req)
     ipcRenderer.on(IPC.permissionRequest, listener)

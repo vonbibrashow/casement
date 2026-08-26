@@ -38,6 +38,7 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
   const stop = useWorkspace((s) => s.stop)
   const split = useWorkspace((s) => s.split)
   const closePanel = useWorkspace((s) => s.closePanel)
+  const addTab = useWorkspace((s) => s.addTab)
   const setFocusedPanel = useWorkspace((s) => s.setFocusedPanel)
   const openShare = useWorkspace((s) => s.openShare)
   const isShared = useWorkspace((s) => s.shares.some((x) => x.panelId === id))
@@ -73,8 +74,38 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
   }
   useEffect(() => () => void (hideTimer.current && clearTimeout(hideTimer.current)), [])
 
-  // Never collapse out from under an open menu or a focused address bar.
-  const chromeVisible = !autoHide || revealed || menuOpen
+  const pinned = useWorkspace((s) => s.panels[id]?.chromePinned ?? false)
+  const togglePin = useWorkspace((s) => s.togglePanelChromePin)
+
+  // Never collapse out from under an open menu, a focused address bar, or a
+  // bar the user has explicitly pinned.
+  const chromeVisible = !autoHide || revealed || menuOpen || pinned
+
+  /** Native right-click menu — floats above the panel's WebContentsView. */
+  const onContextMenu = (e: React.MouseEvent): void => {
+    e.preventDefault()
+    showChrome() // hold it open while the menu is up
+    void window.workspace.showPanelChromeMenu(pinned, canClose).then((action) => {
+      switch (action) {
+        case 'toggle-pin':
+          togglePin(id)
+          break
+        case 'new-tab':
+          addTab(id)
+          break
+        case 'split-right':
+          split(id, 'right')
+          break
+        case 'split-down':
+          split(id, 'bottom')
+          break
+        case 'close-panel':
+          closePanel(id)
+          break
+      }
+      if (autoHide) scheduleHide()
+    })
+  }
 
   useLayoutEffect(() => {
     const el = rootRef.current
@@ -184,7 +215,8 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
       {!chromeVisible && (
         <div
           onPointerEnter={showChrome}
-          title="Show tabs and address bar"
+          onContextMenu={onContextMenu}
+          title="Show tabs and address bar — right-click for options"
           className="group flex h-1.5 shrink-0 cursor-pointer items-center justify-center bg-surface-border/60 hover:bg-accent/70"
         >
           <span className="h-[2px] w-8 rounded-full bg-slate-600 group-hover:bg-white/70" />
@@ -195,6 +227,7 @@ export function PanelFrame({ id }: { id: string }): JSX.Element {
       <div
         onPointerEnter={autoHide ? showChrome : undefined}
         onPointerLeave={autoHide ? scheduleHide : undefined}
+        onContextMenu={onContextMenu}
         className={`flex h-9 shrink-0 items-center gap-1 border-b border-surface-border px-1.5 ${chromeVisible ? '' : 'hidden'}`}
       >
         {canClose && (

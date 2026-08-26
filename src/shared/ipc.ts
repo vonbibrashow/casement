@@ -64,6 +64,8 @@ export const IPC = {
   historyClear: 'history:clear',
   historyRemove: 'history:remove',
   historyCount: 'history:count',
+  menuPanelChrome: 'menu:panel-chrome',
+  menuToolbar: 'menu:toolbar',
   permissionRespond: 'permission:respond',
   permissionList: 'permission:list',
   permissionForget: 'permission:forget',
@@ -153,6 +155,12 @@ export interface WorkspaceApi {
   clearHistory(): Promise<void>
   removeHistoryEntry(id: string): Promise<void>
   historyCount(): Promise<number>
+
+  // --- context menus ---
+  /** Native right-click menu for a panel's chrome bar. Resolves with the
+   *  chosen action id, or null if dismissed. */
+  showPanelChromeMenu(pinned: boolean, canClose: boolean): Promise<string | null>
+  showToolbarMenu(pinned: boolean): Promise<string | null>
 
   // --- site permissions ---
   /** Fires when a site asks for something the user has to decide. */

@@ -144,6 +144,9 @@ interface WorkspaceStore {
   resizeSplit(path: number[], sizes: [number, number]): void
   focusPanel(panelId: string): void
 
+  /** Keep this panel's chrome visible despite auto-hide. */
+  togglePanelChromePin(panelId: string): void
+
   // tabs
   addTab(panelId: string, url?: string): void
   closeTab(panelId: string, tabId: string): void
@@ -526,6 +529,13 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
       set({ focusedPanelId: panelId })
       void window.workspace.focusPanel(panelId)
       scheduleSave()
+    },
+
+    togglePanelChromePin(panelId) {
+      const panel = get().panels[panelId]
+      if (!panel) return
+      // Goes through updatePanel so it persists with the rest of the workspace.
+      updatePanel(panelId, { ...panel, chromePinned: !panel.chromePinned })
     },
 
     addTab(panelId, url) {

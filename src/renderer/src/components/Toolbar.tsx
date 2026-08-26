@@ -71,6 +71,10 @@ export function Toolbar(): JSX.Element {
   const deleteWorkspace = useWorkspace((s) => s.deleteWorkspace)
   const panels = useWorkspace((s) => countPanels(s.layout))
   const autoHide = useWorkspace((s) => s.settings?.autoHideToolbar ?? false)
+  const pinned = useWorkspace((s) => s.settings?.toolbarPinned ?? false)
+  const updateSettings = useWorkspace((s) => s.updateSettings)
+  const createWorkspace = useWorkspace((s) => s.createWorkspace)
+  const openSettings = useWorkspace((s) => s.openSettings)
   // Two primitive selectors (numbers) — returning an object here would hand
   // zustand a fresh reference every render and loop forever.
   const liveTabs = useWorkspace((s) => {
@@ -106,8 +110,21 @@ export function Toolbar(): JSX.Element {
   }
   useEffect(() => () => void (hideTimer.current && clearTimeout(hideTimer.current)), [])
 
-  // Renaming must not be interrupted by the bar collapsing mid-edit.
-  const visible = !autoHide || revealed || editing
+  // Renaming must not be interrupted by the bar collapsing mid-edit, and a
+  // pinned bar never collapses at all.
+  const visible = !autoHide || revealed || editing || pinned
+
+  /** Native right-click menu — floats above the panels' WebContentsViews. */
+  const onContextMenu = (e: React.MouseEvent): void => {
+    e.preventDefault()
+    show()
+    void window.workspace.showToolbarMenu(pinned).then((action) => {
+      if (action === 'toggle-pin') void updateSettings({ toolbarPinned: !pinned })
+      else if (action === 'new-workspace') createWorkspace()
+      else if (action === 'settings') openSettings()
+      if (autoHide) scheduleHide()
+    })
+  }
 
   useEffect(() => {
     if (editing) inputRef.current?.select()
@@ -127,7 +144,8 @@ export function Toolbar(): JSX.Element {
     return (
       <div
         onPointerEnter={show}
-        title="Show workspace bar"
+        onContextMenu={onContextMenu}
+        title="Show workspace bar — right-click for options"
         className="group flex h-1.5 shrink-0 cursor-pointer items-center justify-center bg-surface-border/60 hover:bg-accent/70"
       >
         <span className="h-[2px] w-10 rounded-full bg-slate-600 group-hover:bg-white/70" />
@@ -139,6 +157,7 @@ export function Toolbar(): JSX.Element {
     <header
       onPointerEnter={autoHide ? show : undefined}
       onPointerLeave={autoHide ? scheduleHide : undefined}
+      onContextMenu={onContextMenu}
       className="flex h-11 shrink-0 items-center gap-3 border-b border-surface-border bg-surface px-3"
     >
       <div className="flex min-w-0 items-center gap-2">

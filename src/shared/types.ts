@@ -49,6 +49,11 @@ export interface PanelState {
   id: string
   tabs: TabState[]
   activeTabId: string
+  /**
+   * Per-panel override: keep this panel's chrome on screen even when auto-hide
+   * is on. Optional so older saved workspaces load unchanged.
+   */
+  chromePinned?: boolean
 }
 
 /** One saved workspace — a named layout + its panels/tabs. */
@@ -144,6 +149,8 @@ export interface AppSettings {
   autoHideChrome: boolean
   /** Collapse the workspace toolbar until the window's top edge is hovered. */
   autoHideToolbar: boolean
+  /** Keep the workspace bar on screen despite auto-hide (right-click to set). */
+  toolbarPinned: boolean
   /** Block known tracking, analytics and ad hosts in every panel. */
   blockTrackers: boolean
   /** Upgrade plain http:// navigations to https:// where possible. */
